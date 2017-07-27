@@ -234,6 +234,20 @@ func NewTxOut(value int64, pkScript []byte) *TxOut {
 	}
 }
 
+// WriteTxOut encodes to into the bitcoin protocol encoding for a transaction
+// output (TxOut) to w.
+//
+// NOTE: This function is exported in order to allow txscript to compute the
+// new sighashes for witness transactions (BIP0143).
+func WriteTxOut(w io.Writer, pver uint32, version int32, to *TxOut) error {
+	err := binarySerializer.PutUint64(w, littleEndian, uint64(to.Value))
+	if err != nil {
+		return err
+	}
+
+	return WriteVarBytes(w, pver, to.PkScript)
+}
+
 // MsgTx implements the Message interface and represents a bitcoin tx message.
 // It is used to deliver transaction information in response to a getdata
 // message (MsgGetData) for a given transaction.

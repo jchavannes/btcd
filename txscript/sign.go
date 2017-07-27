@@ -17,19 +17,20 @@ import (
 // RawTxInSignature returns the serialized ECDSA signature for the input idx of
 // the given transaction, with hashType appended to it.
 func RawTxInSignature(tx *wire.MsgTx, idx int, subScript []byte,
-	hashType SigHashType, key *btcec.PrivateKey) ([]byte, error) {
+	hashType SigHashType, key *btcec.PrivateKey, amt int64) ([]byte, error) {
 
 	parsedScript, err := parseScript(subScript)
 	if err != nil {
 		return nil, fmt.Errorf("cannot parse output script: %v", err)
 	}
-	hash := calcSignatureHash(parsedScript, hashType, tx, idx)
+
+	hash := calcBip143SignatureHash(parsedScript, NewTxSigHashes(tx), hashType, tx, idx, amt)
 	signature, err := key.Sign(hash)
 	if err != nil {
 		return nil, fmt.Errorf("cannot sign tx input: %s", err)
 	}
 
-	return append(signature.Serialize(), byte(hashType)), nil
+	return append(signature.Serialize(), byte(hashType|SigHashForkID)), nil
 }
 
 // SignatureScript creates an input signature script for tx to spend BTC sent
@@ -40,8 +41,8 @@ func RawTxInSignature(tx *wire.MsgTx, idx int, subScript []byte,
 // as the idx'th input. privKey is serialized in either a compressed or
 // uncompressed format based on compress. This format must match the same format
 // used to generate the payment address, or the script validation will fail.
-func SignatureScript(tx *wire.MsgTx, idx int, subscript []byte, hashType SigHashType, privKey *btcec.PrivateKey, compress bool) ([]byte, error) {
-	sig, err := RawTxInSignature(tx, idx, subscript, hashType, privKey)
+func SignatureScript(tx *wire.MsgTx, idx int, subscript []byte, hashType SigHashType, privKey *btcec.PrivateKey, compress bool, amt int64) ([]byte, error) {
+	sig, err := RawTxInSignature(tx, idx, subscript, hashType, privKey, amt)
 	if err != nil {
 		return nil, err
 	}
@@ -57,8 +58,8 @@ func SignatureScript(tx *wire.MsgTx, idx int, subscript []byte, hashType SigHash
 	return NewScriptBuilder().AddData(sig).AddData(pkData).Script()
 }
 
-func p2pkSignatureScript(tx *wire.MsgTx, idx int, subScript []byte, hashType SigHashType, privKey *btcec.PrivateKey) ([]byte, error) {
-	sig, err := RawTxInSignature(tx, idx, subScript, hashType, privKey)
+func p2pkSignatureScript(tx *wire.MsgTx, idx int, subScript []byte, hashType SigHashType, privKey *btcec.PrivateKey, amt int64) ([]byte, error) {
+	sig, err := RawTxInSignature(tx, idx, subScript, hashType, privKey, amt)
 	if err != nil {
 		return nil, err
 	}
@@ -71,7 +72,7 @@ func p2pkSignatureScript(tx *wire.MsgTx, idx int, subScript []byte, hashType Sig
 // the contract (i.e. nrequired signatures are provided).  Since it is arguably
 // legal to not be able to sign any of the outputs, no error is returned.
 func signMultiSig(tx *wire.MsgTx, idx int, subScript []byte, hashType SigHashType,
-	addresses []btcutil.Address, nRequired int, kdb KeyDB) ([]byte, bool) {
+	addresses []btcutil.Address, nRequired int, kdb KeyDB, amt int64) ([]byte, bool) {
 	// We start with a single OP_FALSE to work around the (now standard)
 	// but in the reference implementation that causes a spurious pop at
 	// the end of OP_CHECKMULTISIG.
@@ -82,7 +83,7 @@ func signMultiSig(tx *wire.MsgTx, idx int, subScript []byte, hashType SigHashTyp
 		if err != nil {
 			continue
 		}
-		sig, err := RawTxInSignature(tx, idx, subScript, hashType, key)
+		sig, err := RawTxInSignature(tx, idx, subScript, hashType, key, amt)
 		if err != nil {
 			continue
 		}
@@ -100,7 +101,7 @@ func signMultiSig(tx *wire.MsgTx, idx int, subScript []byte, hashType SigHashTyp
 }
 
 func sign(chainParams *chaincfg.Params, tx *wire.MsgTx, idx int,
-	subScript []byte, hashType SigHashType, kdb KeyDB, sdb ScriptDB) ([]byte,
+	subScript []byte, hashType SigHashType, kdb KeyDB, sdb ScriptDB, amt int64) ([]byte,
 	ScriptClass, []btcutil.Address, int, error) {
 
 	class, addresses, nrequired, err := ExtractPkScriptAddrs(subScript,
@@ -118,7 +119,7 @@ func sign(chainParams *chaincfg.Params, tx *wire.MsgTx, idx int,
 		}
 
 		script, err := p2pkSignatureScript(tx, idx, subScript, hashType,
-			key)
+			key, amt)
 		if err != nil {
 			return nil, class, nil, 0, err
 		}
@@ -132,7 +133,7 @@ func sign(chainParams *chaincfg.Params, tx *wire.MsgTx, idx int,
 		}
 
 		script, err := SignatureScript(tx, idx, subScript, hashType,
-			key, compressed)
+			key, compressed, amt)
 		if err != nil {
 			return nil, class, nil, 0, err
 		}
@@ -147,7 +148,7 @@ func sign(chainParams *chaincfg.Params, tx *wire.MsgTx, idx int,
 		return script, class, addresses, nrequired, nil
 	case MultiSigTy:
 		script, _ := signMultiSig(tx, idx, subScript, hashType,
-			addresses, nrequired, kdb)
+			addresses, nrequired, kdb, amt)
 		return script, class, addresses, nrequired, nil
 	case NullDataTy:
 		return nil, class, nil, 0,
@@ -378,10 +379,10 @@ func (sc ScriptClosure) GetScript(address btcutil.Address) ([]byte, error) {
 // signature script.
 func SignTxOutput(chainParams *chaincfg.Params, tx *wire.MsgTx, idx int,
 	pkScript []byte, hashType SigHashType, kdb KeyDB, sdb ScriptDB,
-	previousScript []byte) ([]byte, error) {
+	previousScript []byte, amt int64) ([]byte, error) {
 
 	sigScript, class, addresses, nrequired, err := sign(chainParams, tx,
-		idx, pkScript, hashType, kdb, sdb)
+		idx, pkScript, hashType, kdb, sdb, amt)
 	if err != nil {
 		return nil, err
 	}
@@ -389,7 +390,7 @@ func SignTxOutput(chainParams *chaincfg.Params, tx *wire.MsgTx, idx int,
 	if class == ScriptHashTy {
 		// TODO keep the sub addressed and pass down to merge.
 		realSigScript, _, _, _, err := sign(chainParams, tx, idx,
-			sigScript, hashType, kdb, sdb)
+			sigScript, hashType, kdb, sdb, amt)
 		if err != nil {
 			return nil, err
 		}
