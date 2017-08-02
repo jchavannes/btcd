@@ -66,13 +66,17 @@ const (
 	// SFNodeBloom is a flag used to indicate a peer supports bloom
 	// filtering.
 	SFNodeBloom
+
+	// Bitcoin Cash service bit
+	SFNodeBitcoinCash = 1 << 5
 )
 
 // Map of service flags back to their constant names for pretty printing.
 var sfStrings = map[ServiceFlag]string{
-	SFNodeNetwork: "SFNodeNetwork",
-	SFNodeGetUTXO: "SFNodeGetUTXO",
-	SFNodeBloom:   "SFNodeBloom",
+	SFNodeNetwork:     "SFNodeNetwork",
+	SFNodeGetUTXO:     "SFNodeGetUTXO",
+	SFNodeBloom:       "SFNodeBloom",
+	SFNodeBitcoinCash: "SFNodeBitcoinCash",
 }
 
 // orderedSFStrings is an ordered list of service flags from highest to
@@ -81,6 +85,7 @@ var orderedSFStrings = []ServiceFlag{
 	SFNodeNetwork,
 	SFNodeGetUTXO,
 	SFNodeBloom,
+	SFNodeBitcoinCash,
 }
 
 // String returns the ServiceFlag in human-readable form.
