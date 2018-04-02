@@ -12,6 +12,7 @@ import (
 	"io"
 	"math/rand"
 	"net"
+	"reflect"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -1446,6 +1447,7 @@ out:
 
 		// Handle each supported message type.
 		p.stallControl <- stallControlMsg{sccHandlerStart, rmsg}
+		printMsg(rmsg, p)
 		switch msg := rmsg.(type) {
 		case *wire.MsgVersion:
 
@@ -1747,6 +1749,28 @@ func (p *Peer) shouldLogWriteError(err error) bool {
 	return true
 }
 
+func printMsg(value interface{}, p *Peer) {
+	switch msg := value.(type) {
+	case outMsg:
+		switch pak := msg.msg.(type) {
+		/*case *wire.MsgGetData:
+			fmt.Printf("- outMsg: %#v, MsgGetData: %s\n", msg.msg.Command(), pak)*/
+		default:
+			fmt.Printf("- outMsg: %s\n", reflect.TypeOf(pak).String())
+			/*writer := new(bytes.Buffer)
+			msg.msg.BtcEncode(writer, p.ProtocolVersion(), msg.encoding)
+			fmt.Printf("outMsg: %#v, Encoded: %.256s\n", msg.msg.Command(), hex.EncodeToString(writer.Bytes()))*/
+		}
+	default:
+		switch pak := msg.(type) {
+		case *wire.MsgTx:
+			fmt.Printf("- inMsg:  %#v\n  In: %#v, Out: %#v\n", pak, pak.TxIn, pak.TxOut)
+		default:
+			fmt.Printf("- inMsg:  %s\n", reflect.TypeOf(pak).String())
+		}
+	}
+}
+
 // outHandler handles all outgoing messages for the peer.  It must be run as a
 // goroutine.  It uses a buffered channel to serialize output messages while
 // allowing the sender to continue running asynchronously.
@@ -1755,6 +1779,7 @@ out:
 	for {
 		select {
 		case msg := <-p.sendQueue:
+			printMsg(msg, p)
 			switch m := msg.msg.(type) {
 			case *wire.MsgPing:
 				// Only expects a pong message in later protocol
