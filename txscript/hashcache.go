@@ -8,7 +8,7 @@ import (
 	"sync"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/wire"
+	"github.com/cpacia/btcd/wire"
 )
 
 // TxSigHashes houses the partial set of sighashes introduced within BIP0143.
