@@ -12,7 +12,6 @@ import (
 	"io"
 	"math/rand"
 	"net"
-	"reflect"
 	"strconv"
 	"sync"
 	"sync/atomic"
