@@ -18,9 +18,9 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcd/blockchain"
-	"github.com/cpacia/btcd/chaincfg"
+	"github.com/jchavannes/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/cpacia/btcd/wire"
+	"github.com/jchavannes/btcd/wire"
 	"github.com/btcsuite/go-socks/socks"
 	"github.com/davecgh/go-spew/spew"
 )
