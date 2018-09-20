@@ -164,7 +164,7 @@ const (
 	OP_SWAP                = 0x7c // 124
 	OP_TUCK                = 0x7d // 125
 	OP_CAT                 = 0x7e // 126
-	OP_SUBSTR              = 0x7f // 127
+	OP_SPLIT               = 0x7f // 127
 	OP_LEFT                = 0x80 // 128
 	OP_RIGHT               = 0x81 // 129
 	OP_SIZE                = 0x82 // 130
@@ -443,11 +443,11 @@ var opcodeArray = [256]opcode{
 	OP_TUCK:         {OP_TUCK, "OP_TUCK", 1, opcodeTuck},
 
 	// Splice opcodes.
-	OP_CAT:    {OP_CAT, "OP_CAT", 1, opcodeDisabled},
-	OP_SUBSTR: {OP_SUBSTR, "OP_SUBSTR", 1, opcodeDisabled},
-	OP_LEFT:   {OP_LEFT, "OP_LEFT", 1, opcodeDisabled},
-	OP_RIGHT:  {OP_RIGHT, "OP_RIGHT", 1, opcodeDisabled},
-	OP_SIZE:   {OP_SIZE, "OP_SIZE", 1, opcodeSize},
+	OP_CAT:   {OP_CAT, "OP_CAT", 1, opcodeCat},
+	OP_SPLIT: {OP_SPLIT, "OP_SPLIT", 1, opcodeSplit},
+	OP_LEFT:  {OP_LEFT, "OP_LEFT", 1, opcodeDisabled},
+	OP_RIGHT: {OP_RIGHT, "OP_RIGHT", 1, opcodeDisabled},
+	OP_SIZE:  {OP_SIZE, "OP_SIZE", 1, opcodeSize},
 
 	// Bitwise logic opcodes.
 	OP_INVERT:      {OP_INVERT, "OP_INVERT", 1, opcodeDisabled},
@@ -629,8 +629,6 @@ type parsedOpcode struct {
 func (pop *parsedOpcode) isDisabled() bool {
 	switch pop.opcode.value {
 	case OP_CAT:
-		return true
-	case OP_SUBSTR:
 		return true
 	case OP_LEFT:
 		return true
@@ -1420,6 +1418,55 @@ func opcodeSwap(op *parsedOpcode, vm *Engine) error {
 // Stack transformation: [... x1 x2] -> [... x2 x1 x2]
 func opcodeTuck(op *parsedOpcode, vm *Engine) error {
 	return vm.dstack.Tuck()
+}
+
+// opcodeCat concatenates two byte sequences. The result must
+// not be larger than MaxScriptElementSize.
+//
+// Stack transformation: {Ox11} {0x22, 0x33} OP_CAT -> 0x112233
+func opcodeCat(op *parsedOpcode, vm *Engine) error {
+	b, err := vm.dstack.PopByteArray()
+	if err != nil {
+		return err
+	}
+	a, err := vm.dstack.PopByteArray()
+	if err != nil {
+		return err
+	}
+	c := append(a, b...)
+	if len(c) > MaxScriptElementSize {
+		str := fmt.Sprintf("concatenated size %d exceeds max allowed size %d",
+			len(c), MaxScriptElementSize)
+		return scriptError(ErrElementTooBig, str)
+	}
+	vm.dstack.PushByteArray(c)
+	return nil
+}
+
+// opcodeSplit splits the operand at the given position.
+// This operation is the exact inverse of OP_CAT
+//
+// Stack transformation: x n OP_SPLIT -> x1 x2
+func opcodeSplit(op *parsedOpcode, vm *Engine) error {
+	n, err := vm.dstack.PopInt()
+	if err != nil {
+		return err
+	}
+	c, err := vm.dstack.PopByteArray()
+	if err != nil {
+		return err
+	}
+	if n.Int32() > int32(len(c)) {
+		return scriptError(ErrNumberTooBig, "n is larger than length of array")
+	}
+	if n.Int32() < 0 {
+		return scriptError(ErrElementTooBig, "n is negative")
+	}
+	a := c[:n]
+	b := c[n:]
+	vm.dstack.PushByteArray(a)
+	vm.dstack.PushByteArray(b)
+	return nil
 }
 
 // opcodeSize pushes the size of the top item of the data stack onto the data

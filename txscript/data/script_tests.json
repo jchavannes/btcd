@@ -403,6 +403,10 @@
 ["1 0 0", "ROT", "P2SH,STRICTENC", "OK"],
 ["1 0", "SWAP", "P2SH,STRICTENC", "OK"],
 ["0 1", "TUCK", "P2SH,STRICTENC", "OK"],
+["'a' 'b'", "CAT", "P2SH,STRICTENC", "OK", "CAT"],
+["'a' 'b' 0", "IF CAT ELSE 1 ENDIF", "P2SH,STRICTENC", "OK", "CAT"],
+["'abc' 1", "SPLIT", "P2SH,STRICTENC", "OK", "SPLIT"],
+["'abc' 1 0", "IF SPLIT ELSE 1 ENDIF", "P2SH,STRICTENC", "OK", "SPLIT"],
 
 ["1", "SIZE", "P2SH,STRICTENC", "OK"],
 
@@ -995,6 +999,11 @@
 "P2SH,STRICTENC",
 "SCRIPT_SIZE",
 "10,001-byte scriptPubKey"],
+
+["'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'", "CAT", "P2SH,STRICTENC", "ELEMENT_SIZE", "CAT_FALSE"],
+
+["'abc' 4", "SPLIT", "P2SH,STRICTENC", "UNKNOWN_ERROR", "SPLIT_FAIL"],
+["'abc' -1 0", "IF SPLIT ELSE 1 ENDIF", "P2SH,STRICTENC", "UNKNOWN_ERROR", "SPLIT_FAIL"],
 
 ["NOP1","NOP10", "P2SH,STRICTENC", "EVAL_FALSE"],
 
