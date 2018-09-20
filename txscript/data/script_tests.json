@@ -407,6 +407,8 @@
 ["'a' 'b' 0", "IF CAT ELSE 1 ENDIF", "P2SH,STRICTENC", "OK", "CAT"],
 ["'abc' 1", "SPLIT", "P2SH,STRICTENC", "OK", "SPLIT"],
 ["'abc' 1 0", "IF SPLIT ELSE 1 ENDIF", "P2SH,STRICTENC", "OK", "SPLIT"],
+["-5 4", "NUM2BIN", "P2SH,STRICTENC", "OK", "NUM2BIN"],
+["'aabb'", "BIN2NUM", "P2SH,STRICTENC", "OK", "BIN2NUM"],
 
 ["1", "SIZE", "P2SH,STRICTENC", "OK"],
 
@@ -1003,7 +1005,18 @@
 ["'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'", "CAT", "P2SH,STRICTENC", "ELEMENT_SIZE", "CAT_FALSE"],
 
 ["'abc' 4", "SPLIT", "P2SH,STRICTENC", "UNKNOWN_ERROR", "SPLIT_FAIL"],
-["'abc' -1 0", "IF SPLIT ELSE 1 ENDIF", "P2SH,STRICTENC", "UNKNOWN_ERROR", "SPLIT_FAIL"],
+["'abc' -1 1", "IF SPLIT ELSE 1 ENDIF", "P2SH,STRICTENC", "UNKNOWN_ERROR", "SPLIT_FAIL"],
+
+["-5 521", "NUM2BIN", "P2SH,STRICTENC", "UNKNOWN_ERROR", "NUM2BIN_FAIL"],
+["22342 1", "NUM2BIN", "P2SH,STRICTENC", "UNKNOWN_ERROR", "NUM2BIN_FAIL"],
+["'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb'", "BIN2NUM", "P2SH,STRICTENC", "UNKNOWN_ERROR", "BIN2NUM_FAIL"],
+
+["'aa' 'bbbb'", "AND", "P2SH,STRICTENC", "UNKNOWN_ERROR", "AND_FAIL"],
+["'aa' 'bbbb'", "OR", "P2SH,STRICTENC", "UNKNOWN_ERROR", "OR_FAIL"],
+["'aa' 'bbbb'", "XOR", "P2SH,STRICTENC", "UNKNOWN_ERROR", "XOR_FAIL"],
+
+["5 0", "DIV", "P2SH,STRICTENC", "UNKNOWN_ERROR", "DIV_FAIL"],
+["5 0", "MOD", "P2SH,STRICTENC", "UNKNOWN_ERROR", "MOD_FAIL"],
 
 ["NOP1","NOP10", "P2SH,STRICTENC", "EVAL_FALSE"],
 
