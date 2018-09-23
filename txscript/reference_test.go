@@ -168,6 +168,8 @@ func parseScriptFlags(flagStr string) (ScriptFlags, error) {
 			flags |= ScriptVerifySigPushOnly
 		case "STRICTENC":
 			flags |= ScriptVerifyStrictEncoding
+		case "CHECKDATASIG":
+			flags |= ScriptVerifyCheckDataSig
 		default:
 			return flags, fmt.Errorf("invalid flag: %s", flag)
 		}
@@ -237,6 +239,8 @@ func parseExpectedResult(expected string) ([]ErrorCode, error) {
 		return []ErrorCode{ErrNegativeLockTime}, nil
 	case "UNSATISFIED_LOCKTIME":
 		return []ErrorCode{ErrUnsatisfiedLockTime}, nil
+	case "CHECKDATASIGVERIFY":
+		return []ErrorCode{ErrCheckDataSigVerify}, nil
 	}
 
 	return nil, fmt.Errorf("unrecognized expected result in test data: %v",
