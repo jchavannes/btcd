@@ -761,7 +761,7 @@ func (pop *parsedOpcode) print(oneline bool) string {
 			return opcodeName
 		}
 
-		return fmt.Sprintf("%x", pop.data)
+		return fmt.Sprintf("%s (%x) %x", opcodeName, len(pop.data), pop.data)
 	}
 
 	// Nothing more to do for non-data push opcodes.
