@@ -2331,9 +2331,16 @@ func opcodeCheckMultiSig(op *parsedOpcode, vm *Engine) error {
 			}
 
 			// Parse the signature.
-			parsedSig, err := btcec.ParseSchnorrSignature(signature)
-			if err != nil {
-				return err
+			var parsedSig *btcec.Signature
+			var err error
+			if vm.hasFlag(ScriptVerifyStrictEncoding) ||
+				vm.hasFlag(ScriptVerifyDERSignatures) {
+
+				parsedSig, err = btcec.ParseDERSignature(signature,
+					btcec.S256())
+			} else {
+				parsedSig, err = btcec.ParseBERSignature(signature,
+					btcec.S256())
 			}
 
 			if err := vm.checkPubKeyEncoding(pubKey); err != nil {
@@ -2479,7 +2486,6 @@ func opcodeCheckMultiSig(op *parsedOpcode, vm *Engine) error {
 			if vm.sigCache != nil {
 				var sigHash chainhash.Hash
 				copy(sigHash[:], signatureHash)
-
 				valid = vm.sigCache.Exists(sigHash, parsedSig, parsedPubKey)
 				if !valid && parsedSig.Verify(signatureHash, parsedPubKey) {
 					vm.sigCache.Add(sigHash, parsedSig, parsedPubKey)
@@ -2523,6 +2529,107 @@ func opcodeCheckMultiSigVerify(op *parsedOpcode, vm *Engine) error {
 	err := opcodeCheckMultiSig(op, vm)
 	if err == nil {
 		err = abstractVerify(op, vm, ErrCheckMultiSigVerify)
+	}
+	return err
+}
+
+// opcodeCheckDataSig check whether a signature is valid with respect to a
+// message and a public key. It permits data to be imported into a script,
+// and have its validity checked against some signing authority such as an "Oracle".
+//
+// Stack transformation:
+// [<sig>, <msg>, <pubKey>] -> [... bool]
+func opcodeCheckDataSig(op *parsedOpcode, vm *Engine) error {
+	if !vm.hasFlag(ScriptVerifyCheckDataSig) {
+		str := fmt.Sprintf("attempt to execute disabled opcode %s",
+			op.opcode.name)
+		return scriptError(ErrDisabledOpcode, str)
+	}
+	pkBytes, err := vm.dstack.PopByteArray()
+	if err != nil {
+		return err
+	}
+
+	messageBytes, err := vm.dstack.PopByteArray()
+	if err != nil {
+		return err
+	}
+	messageHash := sha256.Sum256(messageBytes)
+
+	sigBytes, err := vm.dstack.PopByteArray()
+	if err != nil {
+		return err
+	}
+
+	if len(sigBytes) > 0 {
+		err := vm.checkSignatureEncoding(sigBytes)
+		if err != nil {
+			return err
+		}
+	}
+	if err := vm.checkPubKeyEncoding(pkBytes); err != nil {
+		return err
+	}
+
+	pubKey, err := btcec.ParsePubKey(pkBytes, btcec.S256())
+	if err != nil {
+		vm.dstack.PushBool(false)
+		return nil
+	}
+
+	var signature *btcec.Signature
+	if vm.hasFlag(ScriptVerifySchnorr) && len(sigBytes) == 64 {
+		signature, err = btcec.ParseSchnorrSignature(sigBytes)
+	} else if vm.hasFlag(ScriptVerifyStrictEncoding) ||
+		vm.hasFlag(ScriptVerifyDERSignatures) {
+
+		signature, err = btcec.ParseDERSignature(sigBytes, btcec.S256())
+	} else {
+		signature, err = btcec.ParseBERSignature(sigBytes, btcec.S256())
+	}
+	if err != nil {
+		vm.dstack.PushBool(false)
+		return nil
+	}
+
+	var valid bool
+	if vm.sigCache != nil {
+		var sigHash chainhash.Hash
+		copy(sigHash[:], messageHash[:])
+
+		valid = vm.sigCache.Exists(sigHash, signature, pubKey)
+		if !valid && signature.Verify(messageHash[:], pubKey) {
+			vm.sigCache.Add(sigHash, signature, pubKey)
+			valid = true
+		}
+	} else {
+		valid = signature.Verify(messageHash[:], pubKey)
+	}
+
+	if !valid && vm.hasFlag(ScriptVerifyNullFail) && len(sigBytes) > 0 {
+		str := "signature not empty on failed checksig"
+		return scriptError(ErrNullFail, str)
+	}
+
+	vm.dstack.PushBool(valid)
+	return nil
+}
+
+// opcodeCheckDataSigVerifyis a combination of opcodeCheckDataSig and
+// opcodeVerify.  The opcodeCheckDataSig is invoked followed by opcodeVerify.
+// See the documentation for each of those opcodes for more details.
+//
+// Stack transformation:
+// [<sig>, <msg>, <pubKey>] -> [... bool] -> [...]
+func opcodeCheckDataSigVerify(op *parsedOpcode, vm *Engine) error {
+	if !vm.hasFlag(ScriptVerifyCheckDataSig) {
+		str := fmt.Sprintf("attempt to execute disabled opcode %s",
+			op.opcode.name)
+		return scriptError(ErrDisabledOpcode, str)
+	}
+	err := opcodeCheckDataSig(op, vm)
+	if err == nil {
+		err = abstractVerify(op, vm, ErrCheckDataSigVerify)
 	}
 	return err
 }

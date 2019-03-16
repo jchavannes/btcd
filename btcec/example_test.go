@@ -27,7 +27,7 @@ func Example_signMessage() {
 	// Sign a message using the private key.
 	message := "test message"
 	messageHash := chainhash.DoubleHashB([]byte(message))
-	signature, err := privKey.Sign(messageHash)
+	signature, err := privKey.SignECDSA(messageHash)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -71,7 +71,7 @@ func Example_verifySignature() {
 		fmt.Println(err)
 		return
 	}
-	signature, err := btcec.ParseSignature(sigBytes, btcec.S256())
+	signature, err := btcec.ParseBERSignature(sigBytes, btcec.S256())
 	if err != nil {
 		fmt.Println(err)
 		return
