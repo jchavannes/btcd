@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcrpcclient"
+	btcrpcclient "github.com/btcsuite/btcd/rpcclient"
 )
 
 // JoinType is an enum representing a particular type of "node join". A node
