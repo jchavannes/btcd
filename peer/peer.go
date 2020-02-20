@@ -171,6 +171,8 @@ type MessageListeners struct {
 	// message.
 	OnSendHeaders func(p *Peer, msg *wire.MsgSendHeaders)
 
+	OnProtoConf func(p *Peer, msg *wire.MsgProtoConf)
+
 	// OnRead is invoked when a peer receives a bitcoin message.  It
 	// consists of the number of bytes read, the message, and whether or not
 	// an error in the read occurred.  Typically, callers will opt to use
@@ -1578,6 +1580,11 @@ out:
 
 			if p.cfg.Listeners.OnSendHeaders != nil {
 				p.cfg.Listeners.OnSendHeaders(p, msg)
+			}
+
+		case *wire.MsgProtoConf:
+			if p.cfg.Listeners.OnProtoConf != nil {
+				p.cfg.Listeners.OnProtoConf(p, msg)
 			}
 
 		default:
