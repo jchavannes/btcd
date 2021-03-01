@@ -52,6 +52,9 @@ const (
 	CmdSendHeaders = "sendheaders"
 	CmdFeeFilter   = "feefilter"
 	CmdProtoConf   = "protoconf"
+
+	CmdCreateStream = "createstrm"
+	CmdStreamAck    = "streamack"
 )
 
 // Message is an interface that describes a bitcoin message.  A type that
