@@ -145,6 +145,12 @@ func makeEmptyMessage(command string) (Message, error) {
 	case CmdProtoConf:
 		msg = &MsgProtoConf{}
 
+	case CmdCreateStream:
+		msg = &MsgCreateStream{}
+
+	case CmdStreamAck:
+		msg = &MsgStreamAck{}
+
 	default:
 		return nil, fmt.Errorf("unhandled command [%s]", command)
 	}
