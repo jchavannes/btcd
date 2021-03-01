@@ -1442,7 +1442,7 @@ out:
 					true)
 			}
 			errMsg := fmt.Sprintf("Unknown error with message %s: %v", p, err)
-			log.Errorf(errMsg)
+			log.Criticalf(errMsg)
 			continue
 			break out
 		}
