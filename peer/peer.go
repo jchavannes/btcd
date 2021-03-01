@@ -1441,6 +1441,9 @@ out:
 				p.PushRejectMsg("malformed", wire.RejectMalformed, errMsg, nil,
 					true)
 			}
+			errMsg := fmt.Sprintf("Unknown error with message %s: %v", p, err)
+			log.Errorf(errMsg)
+			continue
 			break out
 		}
 		atomic.StoreInt64(&p.lastRecv, time.Now().Unix())
