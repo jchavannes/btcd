@@ -1443,7 +1443,6 @@ out:
 			}
 			errMsg := fmt.Sprintf("Unknown error with message %s: %v", p, err)
 			log.Criticalf(errMsg)
-			continue
 			break out
 		}
 		atomic.StoreInt64(&p.lastRecv, time.Now().Unix())
