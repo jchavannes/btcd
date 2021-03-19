@@ -40,7 +40,7 @@ func (msg *MsgProtoConf) Command() string {
 }
 
 func (msg *MsgProtoConf) MaxPayloadLength(pver uint32) uint32 {
-	return 5
+	return 27
 }
 
 func NewMsgProtoConf() *MsgProtoConf {
