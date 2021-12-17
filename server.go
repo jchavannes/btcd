@@ -973,14 +973,14 @@ func (sp *serverPeer) OnAddr(_ *peer.Peer, msg *wire.MsgAddr) {
 
 // OnRead is invoked when a peer receives a message and it is used to update
 // the bytes received by the server.
-func (sp *serverPeer) OnRead(_ *peer.Peer, bytesRead int, msg wire.Message, err error) {
-	sp.server.AddBytesReceived(uint64(bytesRead))
+func (sp *serverPeer) OnRead(_ *peer.Peer, bytesRead uint64, msg wire.Message, err error) {
+	sp.server.AddBytesReceived(bytesRead)
 }
 
 // OnWrite is invoked when a peer sends a message and it is used to update
 // the bytes sent by the server.
-func (sp *serverPeer) OnWrite(_ *peer.Peer, bytesWritten int, msg wire.Message, err error) {
-	sp.server.AddBytesSent(uint64(bytesWritten))
+func (sp *serverPeer) OnWrite(_ *peer.Peer, bytesWritten uint64, msg wire.Message, err error) {
+	sp.server.AddBytesSent(bytesWritten)
 }
 
 // randomUint16Number returns a random uint16 in a specified input range.  Note
@@ -2405,7 +2405,7 @@ func newServer(listenAddrs []string, db database.DB, chainParams *chaincfg.Param
 			FreeTxRelayLimit:     cfg.FreeTxRelayLimit,
 			MaxOrphanTxs:         cfg.MaxOrphanTxs,
 			MaxOrphanTxSize:      defaultMaxOrphanTxSize,
-			MaxSigOpsPerTx:       blockchain.MaxSigOpsPerBlock / 5,
+			MaxSigOpsPerTx:       int64(blockchain.MaxSigOpsPerBlock / 5),
 			MinRelayTxFee:        cfg.minRelayTxFee,
 			MaxTxVersion:         2,
 		},

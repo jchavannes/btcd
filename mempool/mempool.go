@@ -115,7 +115,7 @@ type Policy struct {
 	// MaxSigOpsPerTx is the maximum number of signature operations
 	// in a single transaction we will relay or mine.  It is a fraction
 	// of the max signature operations for a block.
-	MaxSigOpsPerTx int
+	MaxSigOpsPerTx int64
 
 	// MinRelayTxFee defines the minimum transaction fee in BTC/kB to be
 	// considered a non-zero fee.
@@ -788,7 +788,7 @@ func (mp *TxPool) maybeAcceptTransaction(tx *btcutil.Tx, isNew, rateLimit, rejec
 		return nil, nil, err
 	}
 	numSigOps += blockchain.CountSigOps(tx)
-	if numSigOps > mp.cfg.Policy.MaxSigOpsPerTx {
+	if int64(numSigOps) > mp.cfg.Policy.MaxSigOpsPerTx {
 		str := fmt.Sprintf("transaction %v has too many sigops: %d > %d",
 			txHash, numSigOps, mp.cfg.Policy.MaxSigOpsPerTx)
 		return nil, nil, txRuleError(wire.RejectNonstandard, str)

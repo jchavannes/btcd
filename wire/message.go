@@ -25,7 +25,7 @@ const CommandSize = 12
 
 // MaxMessagePayload is the maximum bytes a message can be regardless of other
 // individual limits imposed by messages themselves.
-const MaxMessagePayload = math.MaxUint32
+const MaxMessagePayload = 0x0000ffffffffffff
 
 // Commands used in bitcoin message headers which describe the type of message.
 const (
@@ -56,6 +56,7 @@ const (
 
 	CmdCreateStream = "createstrm"
 	CmdStreamAck    = "streamack"
+	CmdExtended     = "extmsg" // added in protocol version 70016
 )
 
 // MessageEncoding represents the wire message encoding format to be used.
@@ -75,7 +76,7 @@ type Message interface {
 	BtcDecode(io.Reader, uint32) error
 	BtcEncode(io.Writer, uint32) error
 	Command() string
-	MaxPayloadLength(uint32) uint32
+	MaxPayloadLength(uint32) uint64
 }
 
 // makeEmptyMessage creates a message of the appropriate concrete type based
@@ -161,6 +162,9 @@ func makeEmptyMessage(command string) (Message, error) {
 	case CmdStreamAck:
 		msg = &MsgStreamAck{}
 
+	case CmdExtended:
+		msg = &MsgExtended{}
+
 	default:
 		return nil, fmt.Errorf("unhandled command [%s]", command)
 	}
@@ -222,8 +226,8 @@ func discardInput(r io.Reader, n uint32) {
 // WriteMessageN writes a bitcoin Message to w including the necessary header
 // information and returns the number of bytes written.    This function is the
 // same as WriteMessage except it also returns the number of bytes written.
-func WriteMessageN(w io.Writer, msg Message, pver uint32, btcnet BitcoinNet) (int, error) {
-	totalBytes := 0
+func WriteMessageN(w io.Writer, msg Message, pver uint32, btcnet BitcoinNet) (uint64, error) {
+	totalBytes := uint64(0)
 
 	// Enforce max command size.
 	var command [CommandSize]byte
@@ -254,7 +258,7 @@ func WriteMessageN(w io.Writer, msg Message, pver uint32, btcnet BitcoinNet) (in
 
 	// Enforce maximum message payload based on the message type.
 	mpl := msg.MaxPayloadLength(pver)
-	if uint32(lenp) > mpl {
+	if uint64(lenp) > mpl {
 		str := fmt.Sprintf("message payload is too large - encoded "+
 			"%d bytes, but maximum message payload size for "+
 			"messages of type [%s] is %d.", lenp, cmd, mpl)
@@ -264,8 +268,24 @@ func WriteMessageN(w io.Writer, msg Message, pver uint32, btcnet BitcoinNet) (in
 	// Create header for the message.
 	hdr := messageHeader{}
 	hdr.magic = btcnet
-	hdr.command = cmd
-	hdr.length = uint32(lenp)
+	if lenp >= math.MaxUint32 {
+		// Convert to extended message
+		hdr.command = CmdExtended
+		hdr.length = math.MaxUint32
+		copy(command[:], []byte(CmdExtended))
+
+		extendedMsg := NewMsgExtended(cmd, payload)
+		var extendedBuffer bytes.Buffer
+		err := extendedMsg.BtcEncode(&extendedBuffer, pver)
+		if err != nil {
+			return totalBytes, err
+		}
+		payload = extendedBuffer.Bytes()
+
+	} else {
+		hdr.command = cmd
+		hdr.length = uint32(lenp)
+	}
 	copy(hdr.checksum[:], chainhash.DoubleHashB(payload)[0:4])
 
 	// Encode the header for the message.  This is done to a buffer
@@ -276,14 +296,14 @@ func WriteMessageN(w io.Writer, msg Message, pver uint32, btcnet BitcoinNet) (in
 
 	// Write header.
 	n, err := w.Write(hw.Bytes())
-	totalBytes += n
+	totalBytes += uint64(n)
 	if err != nil {
 		return totalBytes, err
 	}
 
 	// Write payload.
 	n, err = w.Write(payload)
-	totalBytes += n
+	totalBytes += uint64(n)
 	return totalBytes, err
 }
 
@@ -302,16 +322,16 @@ func WriteMessage(w io.Writer, msg Message, pver uint32, btcnet BitcoinNet) erro
 // bytes read in addition to the parsed Message and raw bytes which comprise the
 // message.  This function is the same as ReadMessage except it also returns the
 // number of bytes read.
-func ReadMessageN(r io.Reader, pver uint32, btcnet BitcoinNet) (int, Message, []byte, error) {
-	totalBytes := 0
+func ReadMessageN(r io.Reader, pver uint32, btcnet BitcoinNet) (uint64, Message, []byte, error) {
+	totalBytes := uint64(0)
 	n, hdr, err := readMessageHeader(r)
-	totalBytes += n
+	totalBytes += uint64(n)
 	if err != nil {
 		return totalBytes, nil, nil, err
 	}
 
 	// Enforce maximum message payload.
-	if hdr.length > MaxMessagePayload {
+	if uint64(hdr.length) > MaxMessagePayload {
 		str := fmt.Sprintf("message payload is too large - header "+
 			"indicates %d bytes, but max message payload is %d "+
 			"bytes.", hdr.length, MaxMessagePayload)
@@ -346,7 +366,7 @@ func ReadMessageN(r io.Reader, pver uint32, btcnet BitcoinNet) (int, Message, []
 	// could otherwise create a well-formed header and set the length to max
 	// numbers in order to exhaust the machine's memory.
 	mpl := msg.MaxPayloadLength(pver)
-	if hdr.length > mpl {
+	if uint64(hdr.length) > mpl {
 		discardInput(r, hdr.length)
 		str := fmt.Sprintf("payload exceeds max length - header "+
 			"indicates %v bytes, but max payload size for "+
@@ -357,7 +377,7 @@ func ReadMessageN(r io.Reader, pver uint32, btcnet BitcoinNet) (int, Message, []
 	// Read payload.
 	payload := make([]byte, hdr.length)
 	n, err = io.ReadFull(r, payload)
-	totalBytes += n
+	totalBytes += uint64(n)
 	if err != nil {
 		return totalBytes, nil, nil, err
 	}

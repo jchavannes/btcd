@@ -38,7 +38,7 @@ func TestMsgAlert(t *testing.T) {
 	}
 
 	// Ensure max payload is expected value.
-	wantPayload := uint32(MaxMessagePayload)
+	wantPayload := uint64(MaxMessagePayload)
 	maxPayload := msg.MaxPayloadLength(pver)
 	if maxPayload != wantPayload {
 		t.Errorf("MaxPayloadLength: wrong max payload length for "+
@@ -249,27 +249,6 @@ func TestMsgAlertWireErrors(t *testing.T) {
 	baseMsgAlert.SerializedPayload = []byte{}
 	w := new(bytes.Buffer)
 	err := baseMsgAlert.BtcEncode(w, pver)
-	if _, ok := err.(*MessageError); !ok {
-		t.Errorf("MsgAlert.BtcEncode wrong error got: %T, want: %T",
-			err, MessageError{})
-	}
-
-	// Test Payload Serialize error
-	// overflow the max number of elements in SetCancel
-	baseMsgAlert.Payload = new(Alert)
-	baseMsgAlert.Payload.SetCancel = make([]int32, maxCountSetCancel+1)
-	buf := *new(bytes.Buffer)
-	err = baseMsgAlert.BtcEncode(&buf, pver)
-	if _, ok := err.(*MessageError); !ok {
-		t.Errorf("MsgAlert.BtcEncode wrong error got: %T, want: %T",
-			err, MessageError{})
-	}
-
-	// overflow the max number of elements in SetSubVer
-	baseMsgAlert.Payload = new(Alert)
-	baseMsgAlert.Payload.SetSubVer = make([]string, maxCountSetSubVer+1)
-	buf = *new(bytes.Buffer)
-	err = baseMsgAlert.BtcEncode(&buf, pver)
 	if _, ok := err.(*MessageError); !ok {
 		t.Errorf("MsgAlert.BtcEncode wrong error got: %T, want: %T",
 			err, MessageError{})

@@ -23,15 +23,15 @@ const (
 type Policy struct {
 	// BlockMinSize is the minimum block size in bytes to be used when
 	// generating a block template.
-	BlockMinSize uint32
+	BlockMinSize uint64
 
 	// BlockMaxSize is the maximum block size in bytes to be used when
 	// generating a block template.
-	BlockMaxSize uint32
+	BlockMaxSize uint64
 
 	// BlockPrioritySize is the size in bytes for high-priority / low-fee
 	// transactions to be used when generating a block template.
-	BlockPrioritySize uint32
+	BlockPrioritySize uint64
 
 	// TxMinFreeFee is the minimum fee in Satoshi/1000 bytes that is
 	// required for a transaction to be treated as free for mining purposes

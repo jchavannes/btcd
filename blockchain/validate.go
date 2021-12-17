@@ -221,7 +221,7 @@ func CheckTransactionSanity(tx *btcutil.Tx) error {
 	// A transaction must not exceed the maximum allowed block payload when
 	// serialized.
 	serializedTxSize := tx.MsgTx().SerializeSize()
-	if serializedTxSize > wire.MaxBlockPayload {
+	if uint64(serializedTxSize) > wire.MaxBlockPayload {
 		str := fmt.Sprintf("serialized transaction is too big - got "+
 			"%d, max %d", serializedTxSize, wire.MaxBlockPayload)
 		return ruleError(ErrTxTooBig, str)
@@ -486,7 +486,7 @@ func checkBlockSanity(block *btcutil.Block, powLimit *big.Int, timeSource Median
 	}
 
 	// A block must not have more transactions than the max block payload.
-	if numTx > wire.MaxBlockPayload {
+	if uint64(numTx) > wire.MaxBlockPayload {
 		str := fmt.Sprintf("block contains too many transactions - "+
 			"got %d, max %d", numTx, wire.MaxBlockPayload)
 		return ruleError(ErrTooManyTransactions, str)
@@ -495,7 +495,7 @@ func checkBlockSanity(block *btcutil.Block, powLimit *big.Int, timeSource Median
 	// A block must not exceed the maximum allowed block payload when
 	// serialized.
 	serializedSize := msgBlock.SerializeSize()
-	if serializedSize > wire.MaxBlockPayload {
+	if uint64(serializedSize) > wire.MaxBlockPayload {
 		str := fmt.Sprintf("serialized block is too big - got %d, "+
 			"max %d", serializedSize, wire.MaxBlockPayload)
 		return ruleError(ErrBlockTooBig, str)
@@ -563,7 +563,7 @@ func checkBlockSanity(block *btcutil.Block, powLimit *big.Int, timeSource Median
 		// overflow.
 		lastSigOps := totalSigOps
 		totalSigOps += CountSigOps(tx)
-		if totalSigOps < lastSigOps || totalSigOps > MaxSigOpsPerBlock {
+		if totalSigOps < lastSigOps || uint64(totalSigOps) > MaxSigOpsPerBlock {
 			str := fmt.Sprintf("block contains too many signature "+
 				"operations - got %v, max %v", totalSigOps,
 				MaxSigOpsPerBlock)
@@ -1062,7 +1062,7 @@ func (b *BlockChain) checkConnectBlock(node *blockNode, block *btcutil.Block, vi
 		// this on every loop iteration to avoid overflow.
 		lastSigops := totalSigOps
 		totalSigOps += numsigOps
-		if totalSigOps < lastSigops || totalSigOps > MaxSigOpsPerBlock {
+		if totalSigOps < lastSigops || uint64(totalSigOps) > MaxSigOpsPerBlock {
 			str := fmt.Sprintf("block contains too many "+
 				"signature operations - got %v, max %v",
 				totalSigOps, MaxSigOpsPerBlock)

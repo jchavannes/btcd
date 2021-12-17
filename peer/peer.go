@@ -17,12 +17,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/btcsuite/go-socks/socks"
+	"github.com/davecgh/go-spew/spew"
 	"github.com/jchavannes/btcd/blockchain"
 	"github.com/jchavannes/btcd/chaincfg"
 	"github.com/jchavannes/btcd/chaincfg/chainhash"
 	"github.com/jchavannes/btcd/wire"
-	"github.com/btcsuite/go-socks/socks"
-	"github.com/davecgh/go-spew/spew"
 )
 
 const (
@@ -180,13 +180,13 @@ type MessageListeners struct {
 	// useful for circumstances such as keeping track of server-wide byte
 	// counts or working with custom message types for which the peer does
 	// not directly provide a callback.
-	OnRead func(p *Peer, bytesRead int, msg wire.Message, err error)
+	OnRead func(p *Peer, bytesRead uint64, msg wire.Message, err error)
 
 	// OnWrite is invoked when we write a bitcoin message to a peer.  It
 	// consists of the number of bytes written, the message, and whether or
 	// not an error in the write occurred.  This can be useful for
 	// circumstances such as keeping track of server-wide byte counts.
-	OnWrite func(p *Peer, bytesWritten int, msg wire.Message, err error)
+	OnWrite func(p *Peer, bytesWritten uint64, msg wire.Message, err error)
 }
 
 // Config is the struct to hold configuration options useful to Peer.
@@ -1086,7 +1086,7 @@ func (p *Peer) handlePongMsg(msg *wire.MsgPong) {
 func (p *Peer) readMessage() (wire.Message, []byte, error) {
 	n, msg, buf, err := wire.ReadMessageN(p.conn, p.ProtocolVersion(),
 		p.cfg.ChainParams.Net)
-	atomic.AddUint64(&p.bytesReceived, uint64(n))
+	atomic.AddUint64(&p.bytesReceived, n)
 	if p.cfg.Listeners.OnRead != nil {
 		p.cfg.Listeners.OnRead(p, n, msg, err)
 	}

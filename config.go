@@ -20,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/btcsuite/go-socks/socks"
 	"github.com/jchavannes/btcd/chaincfg"
 	"github.com/jchavannes/btcd/chaincfg/chainhash"
 	"github.com/jchavannes/btcd/connmgr"
@@ -28,7 +29,6 @@ import (
 	"github.com/jchavannes/btcd/mempool"
 	"github.com/jchavannes/btcd/wire"
 	"github.com/jchavannes/btcutil"
-	"github.com/btcsuite/go-socks/socks"
 	flags "github.com/jessevdk/go-flags"
 )
 
@@ -77,6 +77,15 @@ var runServiceCommand func(string) error
 // minUint32 is a helper function to return the minimum of two uint32s.
 // This avoids a math import and the need to cast to floats.
 func minUint32(a, b uint32) uint32 {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+// minUint64 is a helper function to return the minimum of two uint64s.
+// This avoids a math import and the need to cast to floats.
+func minUint64(a, b uint64) uint64 {
 	if a < b {
 		return a
 	}
@@ -138,9 +147,9 @@ type config struct {
 	MaxOrphanTxs         int           `long:"maxorphantx" description:"Max number of orphan transactions to keep in memory"`
 	Generate             bool          `long:"generate" description:"Generate (mine) bitcoins using the CPU"`
 	MiningAddrs          []string      `long:"miningaddr" description:"Add the specified payment address to the list of addresses to use for generated blocks -- At least one address is required if the generate option is set"`
-	BlockMinSize         uint32        `long:"blockminsize" description:"Mininum block size in bytes to be used when creating a block"`
-	BlockMaxSize         uint32        `long:"blockmaxsize" description:"Maximum block size in bytes to be used when creating a block"`
-	BlockPrioritySize    uint32        `long:"blockprioritysize" description:"Size in bytes for high-priority/low-fee transactions when creating a block"`
+	BlockMinSize         uint64        `long:"blockminsize" description:"Mininum block size in bytes to be used when creating a block"`
+	BlockMaxSize         uint64        `long:"blockmaxsize" description:"Maximum block size in bytes to be used when creating a block"`
+	BlockPrioritySize    uint64        `long:"blockprioritysize" description:"Size in bytes for high-priority/low-fee transactions when creating a block"`
 	UserAgentComments    []string      `long:"uacomment" description:"Comment to add to the user agent -- See BIP 14 for more information."`
 	NoPeerBloomFilters   bool          `long:"nopeerbloomfilters" description:"Disable bloom filtering support"`
 	SigCacheMaxSize      uint          `long:"sigcachemaxsize" description:"The maximum number of entries in the signature verification cache"`
@@ -734,8 +743,8 @@ func loadConfig() (*config, []string, error) {
 	}
 
 	// Limit the block priority and minimum block sizes to max block size.
-	cfg.BlockPrioritySize = minUint32(cfg.BlockPrioritySize, cfg.BlockMaxSize)
-	cfg.BlockMinSize = minUint32(cfg.BlockMinSize, cfg.BlockMaxSize)
+	cfg.BlockPrioritySize = minUint64(cfg.BlockPrioritySize, cfg.BlockMaxSize)
+	cfg.BlockMinSize = minUint64(cfg.BlockMinSize, cfg.BlockMaxSize)
 
 	// Look for illegal characters in the user agent comments.
 	for _, uaComment := range cfg.UserAgentComments {

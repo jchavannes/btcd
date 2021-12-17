@@ -27,7 +27,7 @@ func (msg *MsgCreateStream) Command() string {
 	return CmdCreateStream
 }
 
-func (msg *MsgCreateStream) MaxPayloadLength(pver uint32) uint32 {
+func (msg *MsgCreateStream) MaxPayloadLength(pver uint32) uint64 {
 	return 0
 }
 

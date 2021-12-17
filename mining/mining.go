@@ -591,7 +591,7 @@ mempoolLoop:
 	// The starting block size is the size of the block header plus the max
 	// possible transaction count size, plus the size of the coinbase
 	// transaction.
-	blockSize := blockHeaderOverhead + uint32(coinbaseTx.MsgTx().SerializeSize())
+	blockSize := blockHeaderOverhead + uint64(coinbaseTx.MsgTx().SerializeSize())
 	blockSigOps := numCoinbaseSigOps
 	totalFees := int64(0)
 
@@ -606,7 +606,7 @@ mempoolLoop:
 		deps := dependers[*tx.Hash()]
 
 		// Enforce maximum block size.  Also check for overflow.
-		txSize := uint32(tx.MsgTx().SerializeSize())
+		txSize := uint64(tx.MsgTx().SerializeSize())
 		blockPlusTxSize := blockSize + txSize
 		if blockPlusTxSize < blockSize ||
 			blockPlusTxSize >= g.policy.BlockMaxSize {
@@ -621,7 +621,7 @@ mempoolLoop:
 		// for overflow.
 		numSigOps := int64(blockchain.CountSigOps(tx))
 		if blockSigOps+numSigOps < blockSigOps ||
-			blockSigOps+numSigOps > blockchain.MaxSigOpsPerBlock {
+			uint64(blockSigOps+numSigOps) > blockchain.MaxSigOpsPerBlock {
 			log.Tracef("Skipping tx %s because it would exceed "+
 				"the maximum sigops per block", tx.Hash())
 			logSkippedDeps(tx, deps)
@@ -637,7 +637,7 @@ mempoolLoop:
 		}
 		numSigOps += int64(numP2SHSigOps)
 		if blockSigOps+numSigOps < blockSigOps ||
-			blockSigOps+numSigOps > blockchain.MaxSigOpsPerBlock {
+			uint64(blockSigOps+numSigOps) > blockchain.MaxSigOpsPerBlock {
 			log.Tracef("Skipping tx %s because it would exceed "+
 				"the maximum sigops per block (p2sh)",
 				tx.Hash())
@@ -745,7 +745,7 @@ mempoolLoop:
 	// block size for the real transaction count and coinbase value with
 	// the total fees accordingly.
 	blockSize -= wire.MaxVarIntPayload -
-		uint32(wire.VarIntSerializeSize(uint64(len(blockTxns))))
+		uint64(wire.VarIntSerializeSize(uint64(len(blockTxns))))
 	coinbaseTx.MsgTx().TxOut[0].Value += totalFees
 	txFees[0] = -totalFees
 

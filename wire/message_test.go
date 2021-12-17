@@ -75,7 +75,7 @@ func TestMessage(t *testing.T) {
 		out    Message    // Expected decoded value
 		pver   uint32     // Protocol version for wire encoding
 		btcnet BitcoinNet // Network to use for wire encoding
-		bytes  int        // Expected num bytes read/written
+		bytes  uint64     // Expected num bytes read/written
 	}{
 		{msgVersion, msgVersion, pver, MainNet, 125},
 		{msgVerack, msgVerack, pver, MainNet, 24},
@@ -190,11 +190,6 @@ func TestReadMessageWireErrors(t *testing.T) {
 	// Wire encoded bytes for main and testnet3 networks magic identifiers.
 	testNet3Bytes := makeHeader(TestNet3, "", 0, 0)
 
-	// Wire encoded bytes for a message that exceeds max overall message
-	// length.
-	mpl := uint32(MaxMessagePayload)
-	exceedMaxPayloadBytes := makeHeader(btcnet, "getaddr", mpl+1, 0)
-
 	// Wire encoded bytes for a command which is invalid utf-8.
 	badCommandBytes := makeHeader(btcnet, "bogus", 0, 0)
 	badCommandBytes[4] = 0x81
@@ -252,16 +247,6 @@ func TestReadMessageWireErrors(t *testing.T) {
 			pver,
 			btcnet,
 			len(testNet3Bytes),
-			&MessageError{},
-			24,
-		},
-
-		// Exceed max overall message payload length.
-		{
-			exceedMaxPayloadBytes,
-			pver,
-			btcnet,
-			len(exceedMaxPayloadBytes),
 			&MessageError{},
 			24,
 		},
@@ -349,7 +334,7 @@ func TestReadMessageWireErrors(t *testing.T) {
 		}
 
 		// Ensure the number of bytes written match the expected value.
-		if nr != test.bytes {
+		if nr != uint64(test.bytes) {
 			t.Errorf("ReadMessage #%d unexpected num bytes read - "+
 				"got %d, want %d", i, nr, test.bytes)
 		}
@@ -380,10 +365,6 @@ func TestWriteMessageWireErrors(t *testing.T) {
 	// Fake message with a problem during encoding
 	encodeErrMsg := &fakeMessage{forceEncodeErr: true}
 
-	// Fake message that has payload which exceeds max overall message size.
-	exceedOverallPayload := make([]byte, MaxMessagePayload+1)
-	exceedOverallPayloadErrMsg := &fakeMessage{payload: exceedOverallPayload}
-
 	// Fake message that has payload which exceeds max allowed per message.
 	exceedPayload := make([]byte, 1)
 	exceedPayloadErrMsg := &fakeMessage{payload: exceedPayload, forceLenErr: true}
@@ -405,8 +386,6 @@ func TestWriteMessageWireErrors(t *testing.T) {
 		{badCommandMsg, pver, btcnet, 0, wireErr, 0},
 		// Force error in payload encode.
 		{encodeErrMsg, pver, btcnet, 0, wireErr, 0},
-		// Force error due to exceeding max overall message payload size.
-		{exceedOverallPayloadErrMsg, pver, btcnet, 0, wireErr, 0},
 		// Force error due to exceeding max payload for message type.
 		{exceedPayloadErrMsg, pver, btcnet, 0, wireErr, 0},
 		// Force error in header write.
@@ -427,7 +406,7 @@ func TestWriteMessageWireErrors(t *testing.T) {
 		}
 
 		// Ensure the number of bytes written match the expected value.
-		if nw != test.bytes {
+		if nw != uint64(test.bytes) {
 			t.Errorf("WriteMessage #%d unexpected num bytes "+
 				"written - got %d, want %d", i, nw, test.bytes)
 		}
