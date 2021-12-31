@@ -393,9 +393,15 @@ func (vm *Engine) Execute() (err error) {
 	return vm.CheckErrorCondition(true)
 }
 
-// SubScript returns the script since the last OP_CODESEPARATOR.
-func (vm *Engine) SubScript() []parsedOpcode {
+// subScript returns the script since the last OP_CODESEPARATOR.
+func (vm *Engine) subScript() []parsedOpcode {
 	return vm.scripts[vm.scriptIdx][vm.lastCodeSep:]
+}
+
+// SubScript returns the script bytes since the last OP_CODESEPARATOR.
+func (vm *Engine) SubScript() []byte {
+	scriptBytes, _ := unparseScript(vm.subScript())
+	return scriptBytes
 }
 
 // checkHashTypeEncoding returns whether or not the passed hashtype adheres to
