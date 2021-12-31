@@ -16,7 +16,7 @@ import (
 	"github.com/jchavannes/btcd/chaincfg/chainhash"
 	"github.com/jchavannes/btcd/txscript"
 	"github.com/jchavannes/btcd/wire"
-	"github.com/btcsuite/btcrpcclient"
+	"github.com/jchavannes/btcrpcclient"
 	"github.com/jchavannes/btcutil"
 	"github.com/jchavannes/btcutil/hdkeychain"
 )

@@ -268,7 +268,7 @@ information.
 <a name="GoPackages" />
 
 * The btcsuite Bitcoin-related Go Packages:
-    * [btcrpcclient](https://github.com/btcsuite/btcrpcclient) - Implements a
+    * [btcrpcclient](https://github.com/jchavannes/btcrpcclient) - Implements a
       robust and easy to use Websocket-enabled Bitcoin JSON-RPC client
     * [btcjson](https://github.com/btcsuite/btcjson) - Provides an extensive API
       for the underlying JSON-RPC command and return values

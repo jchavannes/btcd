@@ -1074,7 +1074,7 @@ various languages.
 **9.1 Go**
 
 This section provides examples of using the RPC interface using Go and the
-[btcrpcclient](https://github.com/btcsuite/btcrpcclient) package.
+[btcrpcclient](https://github.com/jchavannes/btcrpcclient) package.
 
 * [Using getblockcount to Retrieve the Current Block Height](#ExampleGetBlockCount)
 * [Using getblock to Retrieve the Genesis Block](#ExampleGetBlock)
@@ -1086,7 +1086,7 @@ This section provides examples of using the RPC interface using Go and the
 **9.1.1 Using getblockcount to Retrieve the Current Block Height**<br />
 
 The following is an example Go application which uses the
-[btcrpcclient](https://github.com/btcsuite/btcrpcclient) package to connect with
+[btcrpcclient](https://github.com/jchavannes/btcrpcclient) package to connect with
 a btcd instance via Websockets, issues [getblockcount](#getblockcount) to
 retrieve the current block height, and displays it.
 
@@ -1094,7 +1094,7 @@ retrieve the current block height, and displays it.
 package main
 
 import (
-	"github.com/btcsuite/btcrpcclient"
+	"github.com/jchavannes/btcrpcclient"
 	"github.com/jchavannes/btcutil"
 	"io/ioutil"
 	"log"
@@ -1147,7 +1147,7 @@ Block count: 276978
 **9.1.2 Using getblock to Retrieve the Genesis Block**<br />
 
 The following is an example Go application which uses the
-[btcrpcclient](https://github.com/btcsuite/btcrpcclient) package to connect with
+[btcrpcclient](https://github.com/jchavannes/btcrpcclient) package to connect with
 a btcd instance via Websockets, issues [getblock](#getblock) to retrieve
 information about the Genesis block, and display a few details about it.
 
@@ -1155,7 +1155,7 @@ information about the Genesis block, and display a few details about it.
 package main
 
 import (
-	"github.com/btcsuite/btcrpcclient"
+	"github.com/jchavannes/btcrpcclient"
 	"github.com/jchavannes/btcutil"
 	"github.com/jchavannes/btcd/chaincfg/chainhash"
 	"github.com/jchavannes/btcd/wire"
@@ -1237,7 +1237,7 @@ Num transactions: 1
 Notifications (Websocket-specific)**<br />
 
 The following is an example Go application which uses the
-[btcrpcclient](https://github.com/btcsuite/btcrpcclient) package to connect with
+[btcrpcclient](https://github.com/jchavannes/btcrpcclient) package to connect with
 a btcd instance via Websockets and registers for
 [blockconnected](#blockconnected) and [blockdisconnected](#blockdisconnected)
 notifications with [notifyblocks](#notifyblocks).  It also sets up handlers for
@@ -1247,7 +1247,7 @@ the notifications.
 package main
 
 import (
-	"github.com/btcsuite/btcrpcclient"
+	"github.com/jchavannes/btcrpcclient"
 	"github.com/jchavannes/btcutil"
 	"github.com/jchavannes/btcd/chaincfg/chainhash"
 	"github.com/jchavannes/btcd/wire"

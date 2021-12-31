@@ -1,7 +1,7 @@
 package: github.com/jchavannes/btcd
 import:
 - package: github.com/jchavannes/btclog
-- package: github.com/btcsuite/btcrpcclient
+- package: github.com/jchavannes/btcrpcclient
 - package: github.com/jchavannes/btcutil
   subpackages:
   - bloom
