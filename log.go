@@ -11,17 +11,17 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/btcsuite/btcd/addrmgr"
-	"github.com/btcsuite/btcd/blockchain"
-	"github.com/btcsuite/btcd/blockchain/indexers"
-	"github.com/btcsuite/btcd/connmgr"
-	"github.com/btcsuite/btcd/database"
-	"github.com/btcsuite/btcd/mempool"
-	"github.com/btcsuite/btcd/mining"
-	"github.com/btcsuite/btcd/mining/cpuminer"
-	"github.com/btcsuite/btcd/peer"
-	"github.com/btcsuite/btcd/txscript"
-	"github.com/btcsuite/btclog"
+	"github.com/jchavannes/btcd/addrmgr"
+	"github.com/jchavannes/btcd/blockchain"
+	"github.com/jchavannes/btcd/blockchain/indexers"
+	"github.com/jchavannes/btcd/connmgr"
+	"github.com/jchavannes/btcd/database"
+	"github.com/jchavannes/btcd/mempool"
+	"github.com/jchavannes/btcd/mining"
+	"github.com/jchavannes/btcd/mining/cpuminer"
+	"github.com/jchavannes/btcd/peer"
+	"github.com/jchavannes/btcd/txscript"
+	"github.com/jchavannes/btclog"
 	"github.com/jrick/logrotate/rotator"
 )
 
@@ -118,13 +118,13 @@ func initLogRotator(logFile string) {
 		os.Exit(1)
 	}
 	pr, pw := io.Pipe()
-	r, err := rotator.New(pr, logFile, 10*1024, false, 3)
+	r, err := rotator.New(logFile, 10*1024, false, 3)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "failed to create file rotator: %v\n", err)
 		os.Exit(1)
 	}
 
-	go r.Run()
+	go r.Run(pr)
 
 	logRotator = r
 	logRotatorPipe = pw

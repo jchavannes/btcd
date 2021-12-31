@@ -8,11 +8,11 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/btcsuite/btcd/blockchain"
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/database"
-	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcutil"
+	"github.com/jchavannes/btcd/blockchain"
+	"github.com/jchavannes/btcd/chaincfg/chainhash"
+	"github.com/jchavannes/btcd/database"
+	"github.com/jchavannes/btcd/wire"
+	"github.com/jchavannes/btcutil"
 )
 
 var (

@@ -7,8 +7,8 @@ package blockchain
 import (
 	"math"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcutil"
+	"github.com/jchavannes/btcd/chaincfg/chainhash"
+	"github.com/jchavannes/btcutil"
 )
 
 // nextPowerOfTwo returns the next highest power of two from a given number if

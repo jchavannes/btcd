@@ -25,8 +25,8 @@
 //          "fmt"
 //          "log"
 //
-//          "github.com/btcsuite/btcutil"
-//          "github.com/btcsuite/btcd/chaincfg"
+//          "github.com/jchavannes/btcutil"
+//          "github.com/jchavannes/btcd/chaincfg"
 //  )
 //
 //  var testnet = flag.Bool("testnet", false, "operate on the testnet Bitcoin network")

@@ -15,11 +15,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/wire"
+	"github.com/jchavannes/btcd/chaincfg"
+	"github.com/jchavannes/btcd/chaincfg/chainhash"
+	"github.com/jchavannes/btcd/wire"
 	"github.com/btcsuite/btcrpcclient"
-	"github.com/btcsuite/btcutil"
+	"github.com/jchavannes/btcutil"
 )
 
 const (

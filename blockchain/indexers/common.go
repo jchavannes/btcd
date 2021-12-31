@@ -10,9 +10,9 @@ package indexers
 import (
 	"encoding/binary"
 
-	"github.com/btcsuite/btcd/blockchain"
-	"github.com/btcsuite/btcd/database"
-	"github.com/btcsuite/btcutil"
+	"github.com/jchavannes/btcd/blockchain"
+	"github.com/jchavannes/btcd/database"
+	"github.com/jchavannes/btcutil"
 )
 
 var (

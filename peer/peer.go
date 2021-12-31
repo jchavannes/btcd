@@ -17,9 +17,9 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/btcsuite/btcd/blockchain"
+	"github.com/jchavannes/btcd/blockchain"
 	"github.com/jchavannes/btcd/chaincfg"
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/jchavannes/btcd/chaincfg/chainhash"
 	"github.com/jchavannes/btcd/wire"
 	"github.com/btcsuite/go-socks/socks"
 	"github.com/davecgh/go-spew/spew"

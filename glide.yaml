@@ -1,8 +1,8 @@
-package: github.com/btcsuite/btcd
+package: github.com/jchavannes/btcd
 import:
-- package: github.com/btcsuite/btclog
+- package: github.com/jchavannes/btclog
 - package: github.com/btcsuite/btcrpcclient
-- package: github.com/btcsuite/btcutil
+- package: github.com/jchavannes/btcutil
   subpackages:
   - bloom
   - hdkeychain

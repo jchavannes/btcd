@@ -14,8 +14,8 @@ import (
 
 	"golang.org/x/crypto/ripemd160"
 
-	"github.com/btcsuite/btcd/btcec"
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/jchavannes/btcd/btcec"
+	"github.com/jchavannes/btcd/chaincfg/chainhash"
 	"github.com/jchavannes/btcd/wire"
 )
 

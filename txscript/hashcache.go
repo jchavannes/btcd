@@ -7,7 +7,7 @@ package txscript
 import (
 	"sync"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
+	"github.com/jchavannes/btcd/chaincfg/chainhash"
 	"github.com/jchavannes/btcd/wire"
 )
 

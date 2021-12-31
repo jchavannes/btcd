@@ -9,13 +9,13 @@ import (
 	"testing"
 	"time"
 
-	"github.com/btcsuite/btcd/blockchain"
-	"github.com/btcsuite/btcd/btcec"
-	"github.com/btcsuite/btcd/chaincfg"
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/integration/rpctest"
-	"github.com/btcsuite/btcd/wire"
-	"github.com/btcsuite/btcutil"
+	"github.com/jchavannes/btcd/blockchain"
+	"github.com/jchavannes/btcd/btcec"
+	"github.com/jchavannes/btcd/chaincfg"
+	"github.com/jchavannes/btcd/chaincfg/chainhash"
+	"github.com/jchavannes/btcd/integration/rpctest"
+	"github.com/jchavannes/btcd/wire"
+	"github.com/jchavannes/btcutil"
 )
 
 // TestHaveBlock tests the HaveBlock API to ensure proper functionality.

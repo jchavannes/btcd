@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"math/big"
 
-	"github.com/btcsuite/btcd/btcec"
+	"github.com/jchavannes/btcd/btcec"
 	"github.com/jchavannes/btcd/wire"
 )
 

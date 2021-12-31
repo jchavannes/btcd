@@ -7,9 +7,9 @@ package blockchain
 import (
 	"fmt"
 
-	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/database"
-	"github.com/btcsuite/btcutil"
+	"github.com/jchavannes/btcd/chaincfg/chainhash"
+	"github.com/jchavannes/btcd/database"
+	"github.com/jchavannes/btcutil"
 )
 
 // BehaviorFlags is a bitmask defining tweaks to the normal behavior when
