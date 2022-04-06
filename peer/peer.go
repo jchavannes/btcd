@@ -1353,7 +1353,7 @@ out:
 					continue
 				}
 
-				log.Debugf("Peer %s appears to be stalled or "+
+				log.Errorf("Peer %s appears to be stalled or "+
 					"misbehaving, %s timeout -- "+
 					"disconnecting", p, command)
 				p.Disconnect()
