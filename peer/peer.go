@@ -1227,7 +1227,9 @@ func (p *Peer) maybeAddDeadline(pendingResponses map[string]time.Time, msgCmd st
 		pendingResponses[wire.CmdInv] = deadline
 
 	case wire.CmdGetBlocks:
-		// Expects an inv message.
+		// Expects an inv message. Use a longer deadline since it can
+		// take a while to get large blocks.
+		deadline = time.Now().Add(stallResponseTimeout * 4)
 		pendingResponses[wire.CmdInv] = deadline
 
 	case wire.CmdGetData:
