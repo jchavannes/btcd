@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"math"
 
 	"github.com/jchavannes/btcd/chaincfg/chainhash"
 )
@@ -23,7 +24,7 @@ const defaultTransactionAlloc = 2048
 const MaxBlocksPerMsg = 500
 
 // MaxBlockPayload is the maximum bytes a block message can be in bytes.
-const MaxBlockPayload = 2 * 1024 * 1024 * 1024
+const MaxBlockPayload = math.MaxUint64
 
 // maxTxPerBlock is the maximum number of transactions that could
 // possibly fit into a block.
