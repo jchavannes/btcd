@@ -28,6 +28,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/btcsuite/websocket"
 	"github.com/jchavannes/btcd/blockchain"
 	"github.com/jchavannes/btcd/btcec"
 	"github.com/jchavannes/btcd/btcjson"
@@ -39,7 +40,6 @@ import (
 	"github.com/jchavannes/btcd/txscript"
 	"github.com/jchavannes/btcd/wire"
 	"github.com/jchavannes/btcutil"
-	"github.com/btcsuite/websocket"
 )
 
 // API version constants
@@ -1670,7 +1670,7 @@ func (state *gbtWorkState) blockTemplateResult(useCoinbaseValue bool, submitOld 
 		CurTime:      header.Timestamp.Unix(),
 		Height:       int64(template.Height),
 		PreviousHash: header.PrevBlock.String(),
-		SigOpLimit:   blockchain.MaxSigOpsPerBlock,
+		SigOpLimit:   int64(blockchain.MaxSigOpsPerBlock),
 		SizeLimit:    wire.MaxBlockPayload,
 		Transactions: transactions,
 		Version:      header.Version,
