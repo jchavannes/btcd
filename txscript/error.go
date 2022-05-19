@@ -109,6 +109,14 @@ const (
 	// input may fail with this code.
 	ErrNumberTooBig
 
+	// ErrNumberTooSmall is returned when the argument for an opcode that
+	// expects numeric input is smaller than the expected maximum number of
+	// bytes.  For the most part, opcodes that deal with stack manipulation
+	// via offsets, arithmetic, numeric comparison, and boolean logic are
+	// those that this applies to.  However, any opcode that expects numeric
+	// input may fail with this code.
+	ErrNumberTooSmall
+
 	// --------------------------------------------
 	// Failures related to verification operations.
 	// --------------------------------------------
@@ -136,6 +144,11 @@ const (
 	// evaluate to true.
 	ErrCheckMultiSigVerify
 
+	// ErrCheckDataSigVerify is returned when OP_CHECKDATASIGVERIFY is
+	// encountered in a script and the top item on the data stack does not
+	// evaluate to true.
+	ErrCheckDataSigVerify
+
 	// --------------------------------------------
 	// Failures related to improper use of opcodes.
 	// --------------------------------------------
@@ -162,6 +175,10 @@ const (
 	// an OP_IF or OP_NOTIF was previously encountered.
 	ErrUnbalancedConditional
 
+	// ErrInvalidInputLength is returned when an input to an opcode is not
+	// the correct length as required by that opcode.
+	ErrInvalidInputLength
+
 	// ---------------------------------
 	// Failures related to malleability.
 	// ---------------------------------
@@ -171,13 +188,80 @@ const (
 	// the minimal opcode required.
 	ErrMinimalData
 
+	// ErrMinimalIf is returned when the ScriptVerifyMinimalIf flag
+	// is set and the script contains an if or notif that does not use
+	// the minimal if encoding.
+	ErrMinimalIf
+
 	// ErrInvalidSigHashType is returned when a signature hash type is not
 	// one of the supported types.
 	ErrInvalidSigHashType
 
-	// ErrSigDER is returned when a signature is not a canonically-encoded
-	// DER signature.
-	ErrSigDER
+	// ErrSigTooShort is returned when a signature that should be a
+	// canonically-encoded DER signature is too short.
+	ErrSigTooShort
+
+	// ErrSigTooLong is returned when a signature that should be a
+	// canonically-encoded DER signature is too long.
+	ErrSigTooLong
+
+	// ErrSigInvalidSeqID is returned when a signature that should be a
+	// canonically-encoded DER signature does not have the expected ASN.1
+	// sequence ID.
+	ErrSigInvalidSeqID
+
+	// ErrSigInvalidDataLen is returned a signature that should be a
+	// canonically-encoded DER signature does not specify the correct number
+	// of remaining bytes for the R and S portions.
+	ErrSigInvalidDataLen
+
+	// ErrSigMissingSTypeID is returned a signature that should be a
+	// canonically-encoded DER signature does not provide the ASN.1 type ID
+	// for S.
+	ErrSigMissingSTypeID
+
+	// ErrSigMissingSLen is returned when a signature that should be a
+	// canonically-encoded DER signature does not provide the length of S.
+	ErrSigMissingSLen
+
+	// ErrSigInvalidSLen is returned a signature that should be a
+	// canonically-encoded DER signature does not specify the correct number
+	// of bytes for the S portion.
+	ErrSigInvalidSLen
+
+	// ErrSigInvalidRIntID is returned when a signature that should be a
+	// canonically-encoded DER signature does not have the expected ASN.1
+	// integer ID for R.
+	ErrSigInvalidRIntID
+
+	// ErrSigZeroRLen is returned when a signature that should be a
+	// canonically-encoded DER signature has an R length of zero.
+	ErrSigZeroRLen
+
+	// ErrSigNegativeR is returned when a signature that should be a
+	// canonically-encoded DER signature has a negative value for R.
+	ErrSigNegativeR
+
+	// ErrSigTooMuchRPadding is returned when a signature that should be a
+	// canonically-encoded DER signature has too much padding for R.
+	ErrSigTooMuchRPadding
+
+	// ErrSigInvalidSIntID is returned when a signature that should be a
+	// canonically-encoded DER signature does not have the expected ASN.1
+	// integer ID for S.
+	ErrSigInvalidSIntID
+
+	// ErrSigZeroSLen is returned when a signature that should be a
+	// canonically-encoded DER signature has an S length of zero.
+	ErrSigZeroSLen
+
+	// ErrSigNegativeS is returned when a signature that should be a
+	// canonically-encoded DER signature has a negative value for S.
+	ErrSigNegativeS
+
+	// ErrSigTooMuchSPadding is returned when a signature that should be a
+	// canonically-encoded DER signature has too much padding for S.
+	ErrSigTooMuchSPadding
 
 	// ErrSigHighS is returned when the ScriptVerifyLowS flag is set and the
 	// script contains any signatures whose S values are higher than the
@@ -227,6 +311,19 @@ const (
 	// reached.
 	ErrUnsatisfiedLockTime
 
+	// ErrInvalidDummy is returned when the schnorr dummy element is not
+	// encoded correctly. For example, if it has more bytes than necessary
+	// to encode the selected pubkeys.
+	ErrInvalidDummy
+
+	// ErrInvalidBitCount is returned when the schnorr dummy element does
+	// not contain the correct number of bits.
+	ErrInvalidBitCount
+
+	// ErrInputSigChecks is returned when the script exceeds the maximum
+	// allowed signature density.
+	ErrInputSigChecks
+
 	// numErrorCodes is the maximum error code number used in tests.  This
 	// entry MUST be the last entry in the enum.
 	numErrorCodes
@@ -253,19 +350,37 @@ var errorCodeStrings = map[ErrorCode]string{
 	ErrInvalidPubKeyCount:       "ErrInvalidPubKeyCount",
 	ErrInvalidSignatureCount:    "ErrInvalidSignatureCount",
 	ErrNumberTooBig:             "ErrNumberTooBig",
+	ErrNumberTooSmall:           "ErrNumberTooSmall",
 	ErrVerify:                   "ErrVerify",
 	ErrEqualVerify:              "ErrEqualVerify",
 	ErrNumEqualVerify:           "ErrNumEqualVerify",
 	ErrCheckSigVerify:           "ErrCheckSigVerify",
 	ErrCheckMultiSigVerify:      "ErrCheckMultiSigVerify",
+	ErrCheckDataSigVerify:       "ErrCheckDataSigVerify",
 	ErrDisabledOpcode:           "ErrDisabledOpcode",
 	ErrReservedOpcode:           "ErrReservedOpcode",
 	ErrMalformedPush:            "ErrMalformedPush",
 	ErrInvalidStackOperation:    "ErrInvalidStackOperation",
 	ErrUnbalancedConditional:    "ErrUnbalancedConditional",
+	ErrInvalidInputLength:       "ErrInvalidInputLength",
 	ErrMinimalData:              "ErrMinimalData",
+	ErrMinimalIf:                "ErrMinimalIf",
 	ErrInvalidSigHashType:       "ErrInvalidSigHashType",
-	ErrSigDER:                   "ErrSigDER",
+	ErrSigTooShort:              "ErrSigTooShort",
+	ErrSigTooLong:               "ErrSigTooLong",
+	ErrSigInvalidSeqID:          "ErrSigInvalidSeqID",
+	ErrSigInvalidDataLen:        "ErrSigInvalidDataLen",
+	ErrSigMissingSTypeID:        "ErrSigMissingSTypeID",
+	ErrSigMissingSLen:           "ErrSigMissingSLen",
+	ErrSigInvalidSLen:           "ErrSigInvalidSLen",
+	ErrSigInvalidRIntID:         "ErrSigInvalidRIntID",
+	ErrSigZeroRLen:              "ErrSigZeroRLen",
+	ErrSigNegativeR:             "ErrSigNegativeR",
+	ErrSigTooMuchRPadding:       "ErrSigTooMuchRPadding",
+	ErrSigInvalidSIntID:         "ErrSigInvalidSIntID",
+	ErrSigZeroSLen:              "ErrSigZeroSLen",
+	ErrSigNegativeS:             "ErrSigNegativeS",
+	ErrSigTooMuchSPadding:       "ErrSigTooMuchSPadding",
 	ErrSigHighS:                 "ErrSigHighS",
 	ErrNotPushOnly:              "ErrNotPushOnly",
 	ErrSigNullDummy:             "ErrSigNullDummy",
@@ -275,6 +390,9 @@ var errorCodeStrings = map[ErrorCode]string{
 	ErrDiscourageUpgradableNOPs: "ErrDiscourageUpgradableNOPs",
 	ErrNegativeLockTime:         "ErrNegativeLockTime",
 	ErrUnsatisfiedLockTime:      "ErrUnsatisfiedLockTime",
+	ErrInvalidDummy:             "ErrInvalidDummy",
+	ErrInvalidBitCount:          "ErrInvalidBitCount",
+	ErrInputSigChecks:           "ErrInputSigChecks",
 }
 
 // String returns the ErrorCode as a human-readable name.

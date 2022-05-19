@@ -279,10 +279,69 @@ func removeOpcodeByData(pkscript []parsedOpcode, data []byte) []parsedOpcode {
 
 }
 
+// CalcSignatureHash returns a signature hash which can then be signed by the
+// input. Since Bitcoin Cash uses a different signature hashing algorithm
+// before and after the Uahf fork, the 'useBip143SigHashAlgo' bool is used
+// to specify which algorithm to use.
+func CalcSignatureHash(script []byte, sigHashes *TxSigHashes, hType SigHashType,
+	tx *wire.MsgTx, idx int, amt int64, useBip143SigHashAlgo bool) ([]byte, error) {
+
+	parsedScript, err := parseScript(script)
+	if err != nil {
+		return nil, fmt.Errorf("cannot parse output script: %v", err)
+	}
+	return calcSignatureHash(parsedScript, sigHashes, hType, tx, idx, amt, useBip143SigHashAlgo)
+}
+
+// CalcSignatureHash will, given a script and hash type for the current script
+// engine instance, calculate the signature hash to be used for signing and
+// verification using the given signature hashing algorithm.
+func calcSignatureHash(script []parsedOpcode, sigHashes *TxSigHashes, hType SigHashType,
+	tx *wire.MsgTx, idx int, amt int64, useBip143SigHashAlgo bool) ([]byte, error) {
+	if !useBip143SigHashAlgo {
+		return calcLegacySignatureHash(script, hType, tx, idx)
+	}
+	return calcBip143SignatureHash(script, sigHashes, hType, tx, idx, amt)
+}
+
+// shallowCopyTx creates a shallow copy of the transaction for use when
+// calculating the signature hash.  It is used over the Copy method on the
+// transaction itself since that is a deep copy and therefore does more work and
+// allocates much more space than needed.
+func shallowCopyTx(tx *wire.MsgTx) wire.MsgTx {
+	// As an additional memory optimization, use contiguous backing arrays
+	// for the copied inputs and outputs and point the final slice of
+	// pointers into the contiguous arrays.  This avoids a lot of small
+	// allocations.
+	txCopy := wire.MsgTx{
+		Version:  tx.Version,
+		TxIn:     make([]*wire.TxIn, len(tx.TxIn)),
+		TxOut:    make([]*wire.TxOut, len(tx.TxOut)),
+		LockTime: tx.LockTime,
+	}
+	txIns := make([]wire.TxIn, len(tx.TxIn))
+	for i, oldTxIn := range tx.TxIn {
+		txIns[i] = *oldTxIn
+		txCopy.TxIn[i] = &txIns[i]
+	}
+	txOuts := make([]wire.TxOut, len(tx.TxOut))
+	for i, oldTxOut := range tx.TxOut {
+		txOuts[i] = *oldTxOut
+		txCopy.TxOut[i] = &txOuts[i]
+	}
+	return txCopy
+}
+
 // calcSignatureHash will, given a script and hash type for the current script
 // engine instance, calculate the signature hash to be used for signing and
 // verification.
-func calcSignatureHash(script []parsedOpcode, hashType SigHashType, tx *wire.MsgTx, idx int) []byte {
+func calcLegacySignatureHash(script []parsedOpcode, hashType SigHashType, tx *wire.MsgTx, idx int) ([]byte, error) {
+	// As a sanity check, ensure the passed input index for the transaction
+	// is valid.
+	if idx > len(tx.TxIn)-1 {
+		return nil, fmt.Errorf("idx %d but %d txins", idx, len(tx.TxIn))
+	}
+
 	// The SigHashSingle signature type signs only the corresponding input
 	// and output (the output with the same index number as the input).
 	//
@@ -306,15 +365,15 @@ func calcSignatureHash(script []parsedOpcode, hashType SigHashType, tx *wire.Msg
 	if hashType&SigHashMask == SigHashSingle && idx >= len(tx.TxOut) {
 		var hash chainhash.Hash
 		hash[0] = 0x01
-		return hash[:]
+		return hash[:], nil
 	}
 
 	// Remove all instances of OP_CODESEPARATOR from the script.
 	script = removeOpcode(script, OP_CODESEPARATOR)
 
-	// Make a deep copy of the transaction, zeroing out the script for all
-	// inputs that are not currently being processed.
-	txCopy := tx.Copy()
+	// Make a shallow copy of the transaction, zeroing out the script for
+	// all inputs that are not currently being processed.
+	txCopy := shallowCopyTx(tx)
 	for i := range txCopy.TxIn {
 		if i == idx {
 			// UnparseScript cannot fail here because removeOpcode
@@ -371,7 +430,7 @@ func calcSignatureHash(script []parsedOpcode, hashType SigHashType, tx *wire.Msg
 	wbuf := bytes.NewBuffer(make([]byte, 0, txCopy.SerializeSize()+4))
 	txCopy.Serialize(wbuf)
 	binary.Write(wbuf, binary.LittleEndian, hashType)
-	return chainhash.DoubleHashB(wbuf.Bytes())
+	return chainhash.DoubleHashB(wbuf.Bytes()), nil
 }
 
 // calcHashPrevOuts calculates a single hash of all the previous outputs
@@ -440,14 +499,12 @@ func calcHashOutputs(tx *wire.MsgTx) chainhash.Hash {
 // wallet if fed an invalid input amount, the real sighash will differ causing
 // the produced signature to be invalid.
 func calcBip143SignatureHash(subScript []parsedOpcode, sigHashes *TxSigHashes,
-hashType SigHashType, tx *wire.MsgTx, idx int, amt int64) []byte {
+	hashType SigHashType, tx *wire.MsgTx, idx int, amt int64) ([]byte, error) {
 
 	// As a sanity check, ensure the passed input index for the transaction
 	// is valid.
 	if idx > len(tx.TxIn)-1 {
-		fmt.Printf("calcBip143SignatureHash error: idx %d but %d txins",
-			idx, len(tx.TxIn))
-		return nil
+		return nil, fmt.Errorf("idx %d but %d txins", idx, len(tx.TxIn))
 	}
 
 	// We'll utilize this buffer throughout to incrementally calculate
@@ -489,12 +546,9 @@ hashType SigHashType, tx *wire.MsgTx, idx int, amt int64) []byte {
 	binary.LittleEndian.PutUint32(bIndex[:], tx.TxIn[idx].PreviousOutPoint.Index)
 	sigHash.Write(bIndex[:])
 
-	rawScript, _ := unparseScript(subScript)
+	scriptBytes, _ := unparseScript(subScript)
 
-	// For p2wsh outputs, and future outputs, the script code is the
-	// original script, with all code separators removed, serialized
-	// with a var int length prefix.
-	wire.WriteVarBytes(&sigHash, 0, rawScript)
+	wire.WriteVarBytes(&sigHash, 0, scriptBytes)
 
 	// Next, add the input amount, and sequence number of the input being
 	// signed.
@@ -509,8 +563,8 @@ hashType SigHashType, tx *wire.MsgTx, idx int, amt int64) []byte {
 	// re-use the pre-generated hashoutputs sighash fragment. Otherwise,
 	// we'll serialize and add only the target output index to the signature
 	// pre-image.
-	if hashType&SigHashSingle != SigHashSingle &&
-		hashType&SigHashNone != SigHashNone {
+	if hashType&SigHashMask != SigHashSingle &&
+		hashType&SigHashMask != SigHashNone {
 		sigHash.Write(sigHashes.HashOutputs[:])
 	} else if hashType&SigHashMask == SigHashSingle && idx < len(tx.TxOut) {
 		var b bytes.Buffer
@@ -526,10 +580,10 @@ hashType SigHashType, tx *wire.MsgTx, idx int, amt int64) []byte {
 	binary.LittleEndian.PutUint32(bLockTime[:], tx.LockTime)
 	sigHash.Write(bLockTime[:])
 	var bHashType [4]byte
-	binary.LittleEndian.PutUint32(bHashType[:], uint32(hashType|SigHashForkID))
+	binary.LittleEndian.PutUint32(bHashType[:], uint32(hashType))
 	sigHash.Write(bHashType[:])
 
-	return chainhash.DoubleHashB(sigHash.Bytes())
+	return chainhash.DoubleHashB(sigHash.Bytes()), nil
 }
 
 // asSmallInt returns the passed opcode, which must be true according to
