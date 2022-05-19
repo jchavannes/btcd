@@ -73,6 +73,54 @@ const (
 	// ScriptVerifyStrictEncoding defines that signature scripts and
 	// public keys must follow the strict encoding requirements.
 	ScriptVerifyStrictEncoding
+
+	// ScriptVerifyCompressedPubkey defines that public keys must be in the
+	// compressed format.
+	ScriptVerifyCompressedPubkey
+
+	// ScriptVerifyBip143SigHash defines that signature hashes should
+	// be calculated using the bip0143 signature hashing algorithm.
+	ScriptVerifyBip143SigHash
+
+	// ScriptVerifyCheckDataSig enables verification of the OP_CHECKDATASIG
+	// OP_CHECKDATASIGVERIFY opcodes. Without this flag the opcodes will
+	// behave as if they are disabled.
+	ScriptVerifyCheckDataSig
+
+	// ScriptVerifySchnorr enables verification of schnorr signatures,
+	// in addition to ECDSA signatures, in OP_CHECKSIG, OP_CHECKSIGVEERIFY,
+	// OP_CHECKDATASIG, and OP_CHECKDATASIGVERIFY.
+	ScriptVerifySchnorr
+
+	// ScriptVerifyAllowSegwitRecovery enables an exemption to
+	// ScriptVerifyCleanStack which allows certain outputs to be exempted
+	// from the rule in order to allow users who accidentally sent funds to
+	// segwit addresses to recover them.
+	ScriptVerifyAllowSegwitRecovery
+
+	// ScriptVerifySchnorrMultisig enables the use of schnorr signatures
+	// with OP_CHECKMULTISIG. When active the dummy element signals the
+	// use of schnorr or ECDSA.
+	ScriptVerifySchnorrMultisig
+
+	// ScriptReportSigChecks is used to signal that the sig checks reported
+	// by the vm need to be checked against the consensus rules.
+	ScriptReportSigChecks
+
+	// ScriptVerifyInputSigChecks verifies that the sig check density in
+	// the input script is less than the max.
+	ScriptVerifyInputSigChecks
+
+	// ScriptVerifyReverseBytes enables the use of OP_REVERSEBYTES in the
+	// script.
+	ScriptVerifyReverseBytes
+
+	// ScriptVerify64BitIntegers enables the use of 64 bit ScriptNums
+	ScriptVerify64BitIntegers
+
+	// ScriptVerifyNativeIntrospection enables the suite of native introspection
+	// opcodes.
+	ScriptVerifyNativeIntrospection
 )
 
 const (

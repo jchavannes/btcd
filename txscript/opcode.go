@@ -2059,12 +2059,13 @@ func opcodeCheckSig(op *parsedOpcode, vm *Engine) error {
 	}
 
 	var signature *btcec.Signature
-	if vm.hasFlag(ScriptVerifyStrictEncoding) ||
+	if vm.hasFlag(ScriptVerifySchnorr) && len(sigBytes) == 64 {
+		signature, err = btcec.ParseSchnorrSignature(sigBytes)
+	} else if vm.hasFlag(ScriptVerifyStrictEncoding) ||
 		vm.hasFlag(ScriptVerifyDERSignatures) {
-
 		signature, err = btcec.ParseDERSignature(sigBytes, btcec.S256())
 	} else {
-		signature, err = btcec.ParseSignature(sigBytes, btcec.S256())
+		signature, err = btcec.ParseBERSignature(sigBytes, btcec.S256())
 	}
 	if err != nil {
 		vm.dstack.PushBool(false)
@@ -2272,7 +2273,7 @@ func opcodeCheckMultiSig(op *parsedOpcode, vm *Engine) error {
 				parsedSig, err = btcec.ParseDERSignature(signature,
 					btcec.S256())
 			} else {
-				parsedSig, err = btcec.ParseSignature(signature,
+				parsedSig, err = btcec.ParseBERSignature(signature,
 					btcec.S256())
 			}
 			sigInfo.parsed = true

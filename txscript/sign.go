@@ -10,8 +10,8 @@ import (
 
 	"github.com/jchavannes/btcd/btcec"
 	"github.com/jchavannes/btcd/chaincfg"
-	"github.com/jchavannes/btcutil"
 	"github.com/jchavannes/btcd/wire"
+	"github.com/jchavannes/btcutil"
 )
 
 // RawTxInSignature returns the serialized ECDSA signature for the input idx of
@@ -25,7 +25,7 @@ func RawTxInSignature(tx *wire.MsgTx, idx int, subScript []byte,
 	}
 
 	hash := calcBip143SignatureHash(parsedScript, NewTxSigHashes(tx), hashType, tx, idx, amt)
-	signature, err := key.Sign(hash)
+	signature, err := key.SignECDSA(hash)
 	if err != nil {
 		return nil, fmt.Errorf("cannot sign tx input: %s", err)
 	}
