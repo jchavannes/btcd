@@ -123,6 +123,11 @@ const (
 	ScriptVerifyNativeIntrospection
 )
 
+// HasFlag returns whether the ScriptFlags has the passed flag set.
+func (scriptFlags ScriptFlags) HasFlag(flag ScriptFlags) bool {
+	return scriptFlags&flag == flag
+}
+
 const (
 	// MaxStackSize is the maximum combined height of stack and alt stack
 	// during execution.

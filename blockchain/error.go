@@ -95,10 +95,6 @@ const (
 	// transaction.
 	ErrNoTransactions
 
-	// ErrTooManyTransactions indicates the block has more transactions than
-	// are allowed.
-	ErrTooManyTransactions
-
 	// ErrNoTxInputs indicates a transaction does not have any inputs.  A
 	// valid transaction must have at least one input.
 	ErrNoTxInputs
@@ -110,6 +106,14 @@ const (
 	// ErrTxTooBig indicates a transaction exceeds the maximum allowed size
 	// when serialized.
 	ErrTxTooBig
+
+	// ErrTxTooSmall indicates a transaction is smaller than the minimum
+	// allowed size when serialized.
+	ErrTxTooSmall
+
+	// ErrTxTooManySigChecks indicates a transaction exceeds the maximum allowable
+	// number of signature checks.
+	ErrTxTooManySigChecks
 
 	// ErrBadTxOutValue indicates an output value for a transaction is
 	// invalid in some way such as being out of range.
@@ -124,9 +128,13 @@ const (
 	// range or not referencing one at all.
 	ErrBadTxInput
 
-	// ErrMissingTx indicates a transaction referenced by an input is
-	// missing.
-	ErrMissingTx
+	// ErrMissingTxOut indicates a transaction output referenced by an input
+	// that does not exist
+	ErrMissingTxOut
+
+	// ErrSpentTxOut indicates a transaction output referenced by an input
+	// that has already been spent.
+	ErrSpentTxOut
 
 	// ErrUnfinalizedTx indicates a transaction has not been finalized.
 	// A valid block may only contain finalized transactions.
@@ -146,10 +154,6 @@ const (
 	// coinbase that has not yet reached the required maturity.
 	ErrImmatureSpend
 
-	// ErrDoubleSpend indicates a transaction is attempting to spend coins
-	// that have already been spent.
-	ErrDoubleSpend
-
 	// ErrSpendTooHigh indicates a transaction is attempting to spend more
 	// value than the sum of all of its inputs.
 	ErrSpendTooHigh
@@ -158,9 +162,9 @@ const (
 	// exceeding the maximum possible value.
 	ErrBadFees
 
-	// ErrTooManySigOps indicates the total number of signature operations
-	// for a transaction or block exceed the maximum allowed limits.
-	ErrTooManySigOps
+	// ErrTooManySigChecks indicates that the block's signature checks exceeds
+	// the limit.
+	ErrTooManySigChecks
 
 	// ErrFirstTxNotCoinbase indicates the first transaction in a block
 	// is not a coinbase transaction.
@@ -198,6 +202,27 @@ const (
 	// such signature verification failures and execution past the end of
 	// the stack.
 	ErrScriptValidation
+
+	// ErrPreviousBlockUnknown indicates that the previous block is not known.
+	ErrPreviousBlockUnknown
+
+	// ErrInvalidAncestorBlock indicates that an ancestor of this block has
+	// already failed validation.
+	ErrInvalidAncestorBlock
+
+	// ErrPrevBlockNotBest indicates that the block's previous block is not the
+	// current chain tip. This is not a block validation rule, but is required
+	// for block proposals submitted via getblocktemplate RPC.
+	ErrPrevBlockNotBest
+
+	// ErrBlockTooSmall indicates the serialized block size is less than the
+	// minimum allowed size. This consensus rule currently only applies to
+	// the first block after the Uahf.
+	ErrBlockTooSmall
+
+	// ErrInvalidTxOrder indicates the order of the transactions in the block
+	// does not follow the active transaction ordering consensus rule.
+	ErrInvalidTxOrder
 )
 
 // Map of ErrorCode values back to their constant names for pretty printing.
@@ -216,22 +241,21 @@ var errorCodeStrings = map[ErrorCode]string{
 	ErrForkTooOld:            "ErrForkTooOld",
 	ErrCheckpointTimeTooOld:  "ErrCheckpointTimeTooOld",
 	ErrNoTransactions:        "ErrNoTransactions",
-	ErrTooManyTransactions:   "ErrTooManyTransactions",
 	ErrNoTxInputs:            "ErrNoTxInputs",
 	ErrNoTxOutputs:           "ErrNoTxOutputs",
 	ErrTxTooBig:              "ErrTxTooBig",
+	ErrTxTooSmall:            "ErrTxTooSmall",
 	ErrBadTxOutValue:         "ErrBadTxOutValue",
 	ErrDuplicateTxInputs:     "ErrDuplicateTxInputs",
 	ErrBadTxInput:            "ErrBadTxInput",
-	ErrMissingTx:             "ErrMissingTx",
+	ErrMissingTxOut:          "ErrMissingTxOut",
+	ErrSpentTxOut:            "ErrSpentTxOut",
 	ErrUnfinalizedTx:         "ErrUnfinalizedTx",
 	ErrDuplicateTx:           "ErrDuplicateTx",
 	ErrOverwriteTx:           "ErrOverwriteTx",
 	ErrImmatureSpend:         "ErrImmatureSpend",
-	ErrDoubleSpend:           "ErrDoubleSpend",
 	ErrSpendTooHigh:          "ErrSpendTooHigh",
 	ErrBadFees:               "ErrBadFees",
-	ErrTooManySigOps:         "ErrTooManySigOps",
 	ErrFirstTxNotCoinbase:    "ErrFirstTxNotCoinbase",
 	ErrMultipleCoinbases:     "ErrMultipleCoinbases",
 	ErrBadCoinbaseScriptLen:  "ErrBadCoinbaseScriptLen",
@@ -240,6 +264,12 @@ var errorCodeStrings = map[ErrorCode]string{
 	ErrBadCoinbaseHeight:     "ErrBadCoinbaseHeight",
 	ErrScriptMalformed:       "ErrScriptMalformed",
 	ErrScriptValidation:      "ErrScriptValidation",
+	ErrPreviousBlockUnknown:  "ErrPreviousBlockUnknown",
+	ErrInvalidAncestorBlock:  "ErrInvalidAncestorBlock",
+	ErrPrevBlockNotBest:      "ErrPrevBlockNotBest",
+	ErrInvalidTxOrder:        "ErrInvalidTxOrder",
+	ErrTooManySigChecks:      "ErrTooManySigChecks",
+	ErrTxTooManySigChecks:    "ErrTxTooManySigChecks",
 }
 
 // String returns the ErrorCode as a human-readable name.

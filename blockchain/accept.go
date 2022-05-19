@@ -5,6 +5,9 @@
 package blockchain
 
 import (
+	"fmt"
+
+	"github.com/jchavannes/btcd/chaincfg/chainhash"
 	"github.com/jchavannes/btcd/database"
 	"github.com/jchavannes/btcutil"
 )
@@ -15,36 +18,27 @@ import (
 // before adding it.  The block is expected to have already gone through
 // ProcessBlock before calling this function with it.
 //
-// The flags modify the behavior of this function as follows:
-//  - BFDryRun: The memory chain index will not be pruned and no accept
-//    notification will be sent since the block is not being accepted.
-//
 // The flags are also passed to checkBlockContext and connectBestChain.  See
 // their documentation for how the flags modify their behavior.
 //
 // This function MUST be called with the chain state lock held (for writes).
-func (b *BlockChain) maybeAcceptBlock(block *btcutil.Block, flags BehaviorFlags) (bool, error) {
-	dryRun := flags&BFDryRun == BFDryRun
-
-	// Get a block node for the block previous to this one.  Will be nil
-	// if this is the genesis block.
-	prevNode, err := b.index.PrevNodeFromBlock(block)
-	if err != nil {
-		log.Errorf("PrevNodeFromBlock: %v", err)
-		return false, err
-	}
-
+func (b *BlockChain) maybeAcceptBlock(block *btcutil.Block, prevHash *chainhash.Hash, prevNode *blockNode, flags BehaviorFlags) (bool, error) {
 	// The height of this block is one more than the referenced previous
 	// block.
-	blockHeight := int32(0)
-	if prevNode != nil {
-		blockHeight = prevNode.height + 1
+	if prevNode == nil {
+		str := fmt.Sprintf("previous block %s is unknown", prevHash)
+		return false, ruleError(ErrPreviousBlockUnknown, str)
+	} else if b.index.NodeStatus(prevNode).KnownInvalid() {
+		str := fmt.Sprintf("previous block %s is known to be invalid", prevHash)
+		return false, ruleError(ErrInvalidAncestorBlock, str)
 	}
+
+	blockHeight := prevNode.height + 1
 	block.SetHeight(blockHeight)
 
 	// The block must pass all of the validation rules which depend on the
 	// position of the block within the block chain.
-	err = b.checkBlockContext(block, prevNode, flags)
+	err := b.checkBlockContext(block, prevNode, flags)
 	if err != nil {
 		return false, err
 	}
@@ -59,20 +53,23 @@ func (b *BlockChain) maybeAcceptBlock(block *btcutil.Block, flags BehaviorFlags)
 	// such as making blocks that never become part of the main chain or
 	// blocks that fail to connect available for further analysis.
 	err = b.db.Update(func(dbTx database.Tx) error {
-		return dbMaybeStoreBlock(dbTx, block)
+		return dbStoreBlock(dbTx, block)
 	})
 	if err != nil {
 		return false, err
 	}
 
-	// Create a new block node for the block and add it to the in-memory
-	// block chain (could be either a side chain or the main chain).
+	// Create a new block node for the block and add it to the node index. Even
+	// if the block ultimately gets connected to the main chain, it starts out
+	// on a side chain.
 	blockHeader := &block.MsgBlock().Header
-	newNode := newBlockNode(blockHeader, block.Hash(), blockHeight)
-	if prevNode != nil {
-		newNode.parent = prevNode
-		newNode.height = blockHeight
-		newNode.workSum.Add(prevNode.workSum, newNode.workSum)
+	newNode := newBlockNode(blockHeader, prevNode)
+	newNode.status = statusDataStored
+
+	b.index.AddNode(newNode)
+	err = b.index.flushToDB()
+	if err != nil {
+		return false, err
 	}
 
 	// Connect the passed block to the chain while respecting proper chain
@@ -86,11 +83,11 @@ func (b *BlockChain) maybeAcceptBlock(block *btcutil.Block, flags BehaviorFlags)
 	// Notify the caller that the new block was accepted into the block
 	// chain.  The caller would typically want to react by relaying the
 	// inventory to other peers.
-	if !dryRun {
-		b.chainLock.Unlock()
-		b.sendNotification(NTBlockAccepted, block)
-		b.chainLock.Lock()
-	}
+	b.notificationLock.Lock()
+	b.chainLock.Unlock()
+	b.sendNotification(NTBlockAccepted, block)
+	b.chainLock.Lock()
+	b.notificationLock.Unlock()
 
 	return isMainChain, nil
 }
