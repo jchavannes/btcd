@@ -352,6 +352,15 @@ func (idx *TxIndex) Init() error {
 	return nil
 }
 
+// Migrate is only provided to satisfy the Indexer interface as there is nothing to
+// migrate this index.
+//
+// This is part of the Indexer interface.
+func (idx *TxIndex) Migrate(db database.DB, interrupt <-chan struct{}) error {
+	// Nothing to do.
+	return nil
+}
+
 // Key returns the database key to use for the index as a byte slice.
 //
 // This is part of the Indexer interface.
@@ -388,7 +397,9 @@ func (idx *TxIndex) Create(dbTx database.Tx) error {
 // for every transaction in the passed block.
 //
 // This is part of the Indexer interface.
-func (idx *TxIndex) ConnectBlock(dbTx database.Tx, block *btcutil.Block, view *blockchain.UtxoViewpoint) error {
+func (idx *TxIndex) ConnectBlock(dbTx database.Tx, block *btcutil.Block,
+	stxos []blockchain.SpentTxOut) error {
+
 	// Increment the internal block ID to use for the block being connected
 	// and add all of the transactions in the block to the index.
 	newBlockID := idx.curBlockID + 1
@@ -411,7 +422,9 @@ func (idx *TxIndex) ConnectBlock(dbTx database.Tx, block *btcutil.Block, view *b
 // hash-to-transaction mapping for every transaction in the block.
 //
 // This is part of the Indexer interface.
-func (idx *TxIndex) DisconnectBlock(dbTx database.Tx, block *btcutil.Block, view *blockchain.UtxoViewpoint) error {
+func (idx *TxIndex) DisconnectBlock(dbTx database.Tx, block *btcutil.Block,
+	stxos []blockchain.SpentTxOut) error {
+
 	// Remove all of the transactions in the block from the index.
 	if err := dbRemoveTxIndexEntries(dbTx, block); err != nil {
 		return err
@@ -469,10 +482,11 @@ func dropBlockIDIndex(db database.DB) error {
 // DropTxIndex drops the transaction index from the provided database if it
 // exists.  Since the address index relies on it, the address index will also be
 // dropped when it exists.
-func DropTxIndex(db database.DB) error {
-	if err := dropIndex(db, addrIndexKey, addrIndexName); err != nil {
+func DropTxIndex(db database.DB, interrupt <-chan struct{}) error {
+	err := dropIndex(db, addrIndexKey, addrIndexName, interrupt)
+	if err != nil {
 		return err
 	}
 
-	return dropIndex(db, txIndexKey, txIndexName)
+	return dropIndex(db, txIndexKey, txIndexName, interrupt)
 }
