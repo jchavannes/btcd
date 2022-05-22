@@ -596,6 +596,15 @@ func (idx *AddrIndex) Init() error {
 	return nil
 }
 
+// Migrate is only provided to satisfy the Indexer interface as there is nothing to
+// migrate this index.
+//
+// This is part of the Indexer interface.
+func (idx *AddrIndex) Migrate(db database.DB, interrupt <-chan struct{}) error {
+	// Nothing to do.
+	return nil
+}
+
 // Key returns the database key to use for the index as a byte slice.
 //
 // This is part of the Indexer interface.
@@ -660,27 +669,28 @@ func (idx *AddrIndex) indexPkScript(data writeIndexData, pkScript []byte, txIdx 
 }
 
 // indexBlock extract all of the standard addresses from all of the transactions
-// in the passed block and maps each of them to the assocaited transaction using
+// in the passed block and maps each of them to the associated transaction using
 // the passed map.
-func (idx *AddrIndex) indexBlock(data writeIndexData, block *btcutil.Block, view *blockchain.UtxoViewpoint) {
+func (idx *AddrIndex) indexBlock(data writeIndexData, block *btcutil.Block,
+	stxos []blockchain.SpentTxOut) {
+
+	stxoIndex := 0
 	for txIdx, tx := range block.Transactions() {
 		// Coinbases do not reference any inputs.  Since the block is
 		// required to have already gone through full validation, it has
 		// already been proven on the first transaction in the block is
 		// a coinbase.
 		if txIdx != 0 {
-			for _, txIn := range tx.MsgTx().TxIn {
-				// The view should always have the input since
-				// the index contract requires it, however, be
-				// safe and simply ignore any missing entries.
-				origin := &txIn.PreviousOutPoint
-				entry := view.LookupEntry(&origin.Hash)
-				if entry == nil {
-					continue
-				}
-
-				pkScript := entry.PkScriptByIndex(origin.Index)
+			for range tx.MsgTx().TxIn {
+				// We'll access the slice of all the
+				// transactions spent in this block properly
+				// ordered to fetch the previous input script.
+				pkScript := stxos[stxoIndex].PkScript
 				idx.indexPkScript(data, pkScript, txIdx)
+
+				// With an input indexed, we'll advance the
+				// stxo coutner.
+				stxoIndex++
 			}
 		}
 
@@ -695,7 +705,9 @@ func (idx *AddrIndex) indexBlock(data writeIndexData, block *btcutil.Block, view
 // the transactions in the block involve.
 //
 // This is part of the Indexer interface.
-func (idx *AddrIndex) ConnectBlock(dbTx database.Tx, block *btcutil.Block, view *blockchain.UtxoViewpoint) error {
+func (idx *AddrIndex) ConnectBlock(dbTx database.Tx, block *btcutil.Block,
+	stxos []blockchain.SpentTxOut) error {
+
 	// The offset and length of the transactions within the serialized
 	// block.
 	txLocs, err := block.TxLoc()
@@ -711,7 +723,7 @@ func (idx *AddrIndex) ConnectBlock(dbTx database.Tx, block *btcutil.Block, view 
 
 	// Build all of the address to transaction mappings in a local map.
 	addrsToTxns := make(writeIndexData)
-	idx.indexBlock(addrsToTxns, block, view)
+	idx.indexBlock(addrsToTxns, block, stxos)
 
 	// Add all of the index entries for each address.
 	addrIdxBucket := dbTx.Metadata().Bucket(addrIndexKey)
@@ -733,10 +745,12 @@ func (idx *AddrIndex) ConnectBlock(dbTx database.Tx, block *btcutil.Block, view 
 // each transaction in the block involve.
 //
 // This is part of the Indexer interface.
-func (idx *AddrIndex) DisconnectBlock(dbTx database.Tx, block *btcutil.Block, view *blockchain.UtxoViewpoint) error {
+func (idx *AddrIndex) DisconnectBlock(dbTx database.Tx, block *btcutil.Block,
+	stxos []blockchain.SpentTxOut) error {
+
 	// Build all of the address to transaction mappings in a local map.
 	addrsToTxns := make(writeIndexData)
-	idx.indexBlock(addrsToTxns, block, view)
+	idx.indexBlock(addrsToTxns, block, stxos)
 
 	// Remove all of the index entries for each address.
 	bucket := dbTx.Metadata().Bucket(addrIndexKey)
@@ -842,15 +856,14 @@ func (idx *AddrIndex) AddUnconfirmedTx(tx *btcutil.Tx, utxoView *blockchain.Utxo
 	// transaction has already been validated and thus all inputs are
 	// already known to exist.
 	for _, txIn := range tx.MsgTx().TxIn {
-		entry := utxoView.LookupEntry(&txIn.PreviousOutPoint.Hash)
+		entry := utxoView.LookupEntry(txIn.PreviousOutPoint)
 		if entry == nil {
 			// Ignore missing entries.  This should never happen
 			// in practice since the function comments specifically
 			// call out all inputs must be available.
 			continue
 		}
-		pkScript := entry.PkScriptByIndex(txIn.PreviousOutPoint.Index)
-		idx.indexUnconfirmedAddresses(pkScript, tx)
+		idx.indexUnconfirmedAddresses(entry.PkScript(), tx)
 	}
 
 	// Index addresses of all created outputs.

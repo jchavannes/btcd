@@ -9,6 +9,7 @@ package indexers
 
 import (
 	"encoding/binary"
+	"errors"
 
 	"github.com/jchavannes/btcd/blockchain"
 	"github.com/jchavannes/btcd/database"
@@ -19,6 +20,10 @@ var (
 	// byteOrder is the preferred byte order used for serializing numeric
 	// fields for storage in the database.
 	byteOrder = binary.LittleEndian
+
+	// errInterruptRequested indicates that an operation was cancelled due
+	// to a user-requested interrupt.
+	errInterruptRequested = errors.New("interrupt requested")
 )
 
 // NeedsInputser provides a generic interface for an indexer to specify the it
@@ -40,18 +45,27 @@ type Indexer interface {
 	// to be created for the first time.
 	Create(dbTx database.Tx) error
 
+	// Migrate is invoked after Init and allows each index the opportunity
+	// to perform any migrations as necessary. This should be a noop if
+	// there are no migrations to perform.
+	Migrate(db database.DB, interrupt <-chan struct{}) error
+
 	// Init is invoked when the index manager is first initializing the
 	// index.  This differs from the Create method in that it is called on
 	// every load, including the case the index was just created.
 	Init() error
 
-	// ConnectBlock is invoked when the index manager is notified that a new
-	// block has been connected to the main chain.
-	ConnectBlock(dbTx database.Tx, block *btcutil.Block, view *blockchain.UtxoViewpoint) error
+	// ConnectBlock is invoked when a new block has been connected to the
+	// main chain. The set of output spent within a block is also passed in
+	// so indexers can access the pevious output scripts input spent if
+	// required.
+	ConnectBlock(database.Tx, *btcutil.Block, []blockchain.SpentTxOut) error
 
-	// DisconnectBlock is invoked when the index manager is notified that a
-	// block has been disconnected from the main chain.
-	DisconnectBlock(dbTx database.Tx, block *btcutil.Block, view *blockchain.UtxoViewpoint) error
+	// DisconnectBlock is invoked when a block has been disconnected from
+	// the main chain. The set of outputs scripts that were spent within
+	// this block is also returned so indexers can clean up the prior index
+	// state for this block
+	DisconnectBlock(database.Tx, *btcutil.Block, []blockchain.SpentTxOut) error
 }
 
 // AssertError identifies an error that indicates an internal code consistency
@@ -87,4 +101,17 @@ type internalBucket interface {
 	Get(key []byte) []byte
 	Put(key []byte, value []byte) error
 	Delete(key []byte) error
+}
+
+// interruptRequested returns true when the provided channel has been closed.
+// This simplifies early shutdown slightly since the caller can just use an if
+// statement instead of a select.
+func interruptRequested(interrupted <-chan struct{}) bool {
+	select {
+	case <-interrupted:
+		return true
+	default:
+	}
+
+	return false
 }

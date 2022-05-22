@@ -5,6 +5,8 @@
 package indexers
 
 import (
+	"fmt"
+	"math"
 	"sync"
 	"time"
 
@@ -40,7 +42,7 @@ func newBlockProgressLogger(progressMessage string, logger btclog.Logger) *block
 // LogBlockHeight logs a new block height as an information message to show
 // progress to the user. In order to prevent spam, it limits logging to one
 // message every 10 seconds with duration and totals included.
-func (b *blockProgressLogger) LogBlockHeight(block *btcutil.Block) {
+func (b *blockProgressLogger) LogBlockHeight(block *btcutil.Block, bestHeight uint64) {
 	b.Lock()
 	defer b.Unlock()
 
@@ -66,9 +68,27 @@ func (b *blockProgressLogger) LogBlockHeight(block *btcutil.Block) {
 	if b.receivedLogTx == 1 {
 		txStr = "transaction"
 	}
-	b.subsystemLogger.Infof("%s %d %s in the last %s (%d %s, height %d, %s)",
+
+	progress := float64(0.0)
+
+	if bestHeight > 0 {
+		progress = math.Min(float64(block.Height())/float64(bestHeight), 1.0) * 100
+	}
+
+	var heightStr string
+
+	if uint64(block.Height()) >= bestHeight {
+		// sync is up to date so shorten the height output
+		heightStr = fmt.Sprintf("%d (%.2f%%)", block.Height(), progress)
+	} else {
+		// sync is partial and in progress
+		heightStr = fmt.Sprintf("%d/%d (%.2f%%)", block.Height(),
+			bestHeight, progress)
+	}
+
+	b.subsystemLogger.Infof("%s %d %s in the last %s (%d %s, height %s, %s)",
 		b.progressAction, b.receivedLogBlocks, blockStr, tDuration, b.receivedLogTx,
-		txStr, block.Height(), block.MsgBlock().Header.Timestamp)
+		txStr, heightStr, block.MsgBlock().Header.Timestamp)
 
 	b.receivedLogBlocks = 0
 	b.receivedLogTx = 0

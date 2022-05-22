@@ -14,11 +14,6 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/jchavannes/btcd/chaincfg/chainhash"
-	"github.com/jchavannes/btcd/database"
-	"github.com/jchavannes/btcd/database/internal/treap"
-	"github.com/jchavannes/btcd/wire"
-	"github.com/jchavannes/btcutil"
 	"github.com/btcsuite/goleveldb/leveldb"
 	"github.com/btcsuite/goleveldb/leveldb/comparer"
 	ldberrors "github.com/btcsuite/goleveldb/leveldb/errors"
@@ -26,6 +21,11 @@ import (
 	"github.com/btcsuite/goleveldb/leveldb/iterator"
 	"github.com/btcsuite/goleveldb/leveldb/opt"
 	"github.com/btcsuite/goleveldb/leveldb/util"
+	"github.com/jchavannes/btcd/chaincfg/chainhash"
+	"github.com/jchavannes/btcd/database"
+	"github.com/jchavannes/btcd/database/internal/treap"
+	"github.com/jchavannes/btcd/wire"
+	"github.com/jchavannes/btcutil"
 )
 
 const (
@@ -966,6 +966,9 @@ type transaction struct {
 	pendingBlocks    map[chainhash.Hash]int
 	pendingBlockData []pendingBlock
 
+	// Block heights that need to be deleted if possible
+	pendingBlockDeletes []uint32
+
 	// Keys that need to be stored or deleted on commit.
 	pendingKeys   *treap.Mutable
 	pendingRemove *treap.Mutable
@@ -1185,6 +1188,35 @@ func (tx *transaction) StoreBlock(block *btcutil.Block) error {
 		bytes: blockBytes,
 	})
 	log.Tracef("Added block %s to pending blocks", blockHash)
+
+	return nil
+}
+
+// DeleteBlocks deletes the provided block from the database if it
+// exists. Not error will be returned if it does not exist.
+//
+// The interface contract guarantees at least the following errors will
+// be returned (other implementation-specific errors are possible):
+//   - ErrTxNotWritable if attempted against a read-only transaction
+//   - ErrTxClosed if the transaction has already been closed
+//
+// Other errors are possible depending on the implementation.
+func (tx *transaction) DeleteBlocks(beforeHeight uint32) error {
+	// Ensure transaction state is valid.
+	if err := tx.checkClosed(); err != nil {
+		return err
+	}
+
+	// Ensure the transaction is writable.
+	if !tx.writable {
+		str := "delete block requires a writable database transaction"
+		return makeDbErr(database.ErrTxNotWritable, str, nil)
+	}
+
+	// Add the block to be deleted to the list of pending delete blocks to delete
+	// when the transaction is committed.
+	tx.pendingBlockDeletes = append(tx.pendingBlockDeletes, beforeHeight)
+	log.Tracef("Added block height %d to pending delete blocks", beforeHeight)
 
 	return nil
 }
