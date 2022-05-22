@@ -837,12 +837,26 @@ func (b *blockManager) haveInventory(invVect *wire.InvVect) (bool, error) {
 		}
 
 		// Check if the transaction exists from the point of view of the
-		// end of the main chain.
-		entry, err := b.chain.FetchUtxoEntry(&invVect.Hash)
-		if err != nil {
-			return false, err
+		// end of the main chain.  Note that this is only a best effort
+		// since it is expensive to check existence of every output and
+		// the only purpose of this check is to avoid downloading
+		// already known transactions.  Only the first two outputs are
+		// checked because the vast majority of transactions consist of
+		// two outputs where one is some form of "pay-to-somebody-else"
+		// and the other is a change output.
+		prevOut := wire.OutPoint{Hash: invVect.Hash}
+		for i := uint32(0); i < 2; i++ {
+			prevOut.Index = i
+			entry, err := b.chain.FetchUtxoEntry(prevOut)
+			if err != nil {
+				return false, err
+			}
+			if entry != nil && !entry.IsSpent() {
+				return true, nil
+			}
 		}
-		return entry != nil && !entry.IsFullySpent(), nil
+
+		return false, nil
 	}
 
 	// The requested inventory is is an unsupported type, so just claim
@@ -1406,7 +1420,7 @@ func newBlockManager(s *server, indexManager blockchain.IndexManager) (*blockMan
 		ChainParams:   s.chainParams,
 		Checkpoints:   checkpoints,
 		TimeSource:    s.timeSource,
-		Notifications: bm.handleNotifyMsg,
+		//Notifications: bm.handleNotifyMsg,
 		SigCache:      s.sigCache,
 		IndexManager:  indexManager,
 	})

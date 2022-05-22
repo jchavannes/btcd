@@ -1253,7 +1253,7 @@ func handleGetBlockHeader(s *rpcServer, cmd interface{}, closeChan <-chan struct
 	if err != nil {
 		return nil, rpcDecodeHexError(c.Hash)
 	}
-	blockHeader, err := s.chain.FetchHeader(hash)
+	blockHeader, err := s.chain.HeaderByHash(hash)
 	if err != nil {
 		return nil, &btcjson.RPCError{
 			Code:    btcjson.ErrRPCBlockNotFound,
@@ -1654,7 +1654,7 @@ func (state *gbtWorkState) blockTemplateResult(useCoinbaseValue bool, submitOld 
 			Hash:    txHash.String(),
 			Depends: depends,
 			Fee:     template.Fees[i],
-			SigOps:  template.SigOpCounts[i],
+			SigOps:  template.SigChecks[i],
 		}
 		transactions = append(transactions, resultTx)
 	}
@@ -1670,7 +1670,7 @@ func (state *gbtWorkState) blockTemplateResult(useCoinbaseValue bool, submitOld 
 		CurTime:      header.Timestamp.Unix(),
 		Height:       int64(template.Height),
 		PreviousHash: header.PrevBlock.String(),
-		SigOpLimit:   int64(blockchain.MaxSigOpsPerBlock),
+		SigOpLimit:   int64(blockchain.MaxTransactionSigChecks),
 		SizeLimit:    wire.MaxBlockPayload,
 		Transactions: transactions,
 		Version:      header.Version,
@@ -1712,7 +1712,7 @@ func (state *gbtWorkState) blockTemplateResult(useCoinbaseValue bool, submitOld 
 			Hash:    tx.TxHash().String(),
 			Depends: []int64{},
 			Fee:     template.Fees[0],
-			SigOps:  template.SigOpCounts[0],
+			SigOps:  template.SigChecks[0],
 		}
 
 		reply.CoinbaseTxn = &resultTx
@@ -1916,7 +1916,7 @@ func chainErrToGBTErrString(err error) string {
 	case blockchain.ErrDuplicateBlock:
 		return "duplicate"
 	case blockchain.ErrBlockTooBig:
-		return "bad-block-size"
+		return "bad-blk-length"
 	case blockchain.ErrBlockVersionTooOld:
 		return "bad-version"
 	case blockchain.ErrInvalidTime:
@@ -1941,22 +1941,26 @@ func chainErrToGBTErrString(err error) string {
 		return "checkpoint-time-too-old"
 	case blockchain.ErrNoTransactions:
 		return "bad-txns-none"
-	case blockchain.ErrTooManyTransactions:
-		return "bad-txns-toomany"
 	case blockchain.ErrNoTxInputs:
 		return "bad-txns-noinputs"
 	case blockchain.ErrNoTxOutputs:
 		return "bad-txns-nooutputs"
 	case blockchain.ErrTxTooBig:
-		return "bad-txns-size"
+		return "bad-txns-size-too-large"
+	case blockchain.ErrTxTooSmall:
+		return "bad-txns-size-too-small"
+	case blockchain.ErrTxTooManySigChecks:
+		return "bad-txns-too-many-sigchecks"
 	case blockchain.ErrBadTxOutValue:
 		return "bad-txns-outputvalue"
 	case blockchain.ErrDuplicateTxInputs:
 		return "bad-txns-dupinputs"
 	case blockchain.ErrBadTxInput:
 		return "bad-txns-badinput"
-	case blockchain.ErrMissingTx:
+	case blockchain.ErrMissingTxOut:
 		return "bad-txns-missinginput"
+	case blockchain.ErrSpentTxOut:
+		return "bad-txns-spentinput"
 	case blockchain.ErrUnfinalizedTx:
 		return "bad-txns-unfinalizedtx"
 	case blockchain.ErrDuplicateTx:
@@ -1965,14 +1969,12 @@ func chainErrToGBTErrString(err error) string {
 		return "bad-txns-overwrite"
 	case blockchain.ErrImmatureSpend:
 		return "bad-txns-maturity"
-	case blockchain.ErrDoubleSpend:
-		return "bad-txns-dblspend"
 	case blockchain.ErrSpendTooHigh:
 		return "bad-txns-highspend"
 	case blockchain.ErrBadFees:
 		return "bad-txns-fees"
-	case blockchain.ErrTooManySigOps:
-		return "high-sigops"
+	case blockchain.ErrTooManySigChecks:
+		return "high-sigchecks"
 	case blockchain.ErrFirstTxNotCoinbase:
 		return "bad-txns-nocoinbase"
 	case blockchain.ErrMultipleCoinbases:
@@ -1989,6 +1991,14 @@ func chainErrToGBTErrString(err error) string {
 		return "bad-script-malformed"
 	case blockchain.ErrScriptValidation:
 		return "bad-script-validate"
+	case blockchain.ErrPreviousBlockUnknown:
+		return "prev-blk-not-found"
+	case blockchain.ErrInvalidAncestorBlock:
+		return "bad-prevblk"
+	case blockchain.ErrPrevBlockNotBest:
+		return "inconclusive-not-best-prvblk"
+	case blockchain.ErrInvalidTxOrder:
+		return "invalid-transaction-order"
 	}
 
 	return "rejected: " + err.Error()
@@ -2031,15 +2041,13 @@ func handleGetBlockTemplateProposal(s *rpcServer, request *btcjson.TemplateReque
 	block := btcutil.NewBlock(&msgBlock)
 
 	// Ensure the block is building from the expected previous block.
-	expectedPrevHash := &s.server.blockManager.chain.BestSnapshot().Hash
+	expectedPrevHash := s.server.blockManager.chain.BestSnapshot().Hash
 	prevHash := &block.MsgBlock().Header.PrevBlock
 	if !expectedPrevHash.IsEqual(prevHash) {
 		return "bad-prevblk", nil
 	}
 
-	flags := blockchain.BFDryRun | blockchain.BFNoPoWCheck
-	isOrphan, err := s.server.blockManager.ProcessBlock(block, flags)
-	if err != nil {
+	if err := s.server.blockManager.chain.CheckConnectBlockTemplate(block); err != nil {
 		if _, ok := err.(blockchain.RuleError); !ok {
 			errStr := fmt.Sprintf("Failed to process block proposal: %v", err)
 			rpcsLog.Error(errStr)
@@ -2051,9 +2059,6 @@ func handleGetBlockTemplateProposal(s *rpcServer, request *btcjson.TemplateReque
 
 		rpcsLog.Infof("Rejected block proposal: %v", err)
 		return chainErrToGBTErrString(err), nil
-	}
-	if isOrphan {
-		return "orphan", nil
 	}
 
 	return nil, nil
@@ -2314,7 +2319,7 @@ func handleGetNetworkHashPS(s *rpcServer, cmd interface{}, closeChan <-chan stru
 		}
 
 		// Fetch the header from chain.
-		header, err := s.chain.FetchHeader(hash)
+		header, err := s.chain.HeaderByHash(hash)
 		if err != nil {
 			context := "Failed to fetch block header"
 			return nil, internalRPCError(err.Error(), context)
@@ -2507,7 +2512,7 @@ func handleGetRawTransaction(s *rpcServer, cmd interface{}, closeChan <-chan str
 	var chainHeight int32
 	if blkHash != nil {
 		// Fetch the header from chain.
-		header, err := s.chain.FetchHeader(blkHash)
+		header, err := s.chain.HeaderByHash(blkHash)
 		if err != nil {
 			context := "Failed to fetch block header"
 			return nil, internalRPCError(err.Error(), context)
@@ -2540,7 +2545,6 @@ func handleGetTxOut(s *rpcServer, cmd interface{}, closeChan <-chan struct{}) (i
 	// from there, otherwise attempt to fetch from the block database.
 	var bestBlockHash string
 	var confirmations int32
-	var txVersion int32
 	var value int64
 	var pkScript []byte
 	var isCoinbase bool
@@ -2575,12 +2579,12 @@ func handleGetTxOut(s *rpcServer, cmd interface{}, closeChan <-chan struct{}) (i
 		best := s.chain.BestSnapshot()
 		bestBlockHash = best.Hash.String()
 		confirmations = 0
-		txVersion = mtx.Version
 		value = txOut.Value
 		pkScript = txOut.PkScript
 		isCoinbase = blockchain.IsCoinBaseTx(mtx)
 	} else {
-		entry, err := s.chain.FetchUtxoEntry(txHash)
+		out := wire.OutPoint{Hash: *txHash, Index: c.Vout}
+		entry, err := s.chain.FetchUtxoEntry(out)
 		if err != nil {
 			return nil, rpcNoTxInfoError(txHash)
 		}
@@ -2590,16 +2594,15 @@ func handleGetTxOut(s *rpcServer, cmd interface{}, closeChan <-chan struct{}) (i
 		// transaction already in the main chain.  Mined transactions
 		// that are spent by a mempool transaction are not affected by
 		// this.
-		if entry == nil || entry.IsOutputSpent(c.Vout) {
+		if entry == nil || entry.IsSpent() {
 			return nil, nil
 		}
 
 		best := s.chain.BestSnapshot()
 		bestBlockHash = best.Hash.String()
 		confirmations = 1 + best.Height - entry.BlockHeight()
-		txVersion = entry.Version()
-		value = entry.AmountByIndex(c.Vout)
-		pkScript = entry.PkScriptByIndex(c.Vout)
+		value = entry.Amount()
+		pkScript = entry.PkScript()
 		isCoinbase = entry.IsCoinBase()
 	}
 
@@ -2622,7 +2625,6 @@ func handleGetTxOut(s *rpcServer, cmd interface{}, closeChan <-chan struct{}) (i
 		BestBlock:     bestBlockHash,
 		Confirmations: int64(confirmations),
 		Value:         btcutil.Amount(value).ToBTC(),
-		Version:       txVersion,
 		ScriptPubKey: btcjson.ScriptPubKeyResult{
 			Asm:       disbuf,
 			Hex:       hex.EncodeToString(pkScript),
@@ -3134,7 +3136,7 @@ func handleSearchRawTransactions(s *rpcServer, cmd interface{}, closeChan <-chan
 		var blkHeight int32
 		if blkHash := rtx.blkHash; blkHash != nil {
 			// Fetch the header from chain.
-			header, err := s.chain.FetchHeader(blkHash)
+			header, err := s.chain.HeaderByHash(blkHash)
 			if err != nil {
 				return nil, &btcjson.RPCError{
 					Code:    btcjson.ErrRPCBlockNotFound,
@@ -3355,10 +3357,12 @@ func verifyChain(s *rpcServer, level, depth int32) error {
 			return err
 		}
 
+		const magneticAnomalyActive = false
+
 		// Level 1 does basic chain sanity checks.
 		if level > 0 {
 			err := blockchain.CheckBlockSanity(block,
-				activeNetParams.PowLimit, s.server.timeSource)
+				activeNetParams.PowLimit, s.server.timeSource, magneticAnomalyActive)
 			if err != nil {
 				rpcsLog.Errorf("Verify is unable to validate "+
 					"block at hash %v height %d: %v",
