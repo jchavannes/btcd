@@ -73,13 +73,26 @@ type Config struct {
 	// utxo view.
 	CalcSequenceLock func(*btcutil.Tx, *blockchain.UtxoViewpoint) (*blockchain.SequenceLock, error)
 
+	// IsDeploymentActive returns true if the target deploymentID is
+	// active, and false otherwise. The mempool uses this function to gauge
+	// if transactions using new to be soft-forked rules should be allowed
+	// into the mempool or not.
+	IsDeploymentActive func(deploymentID uint32) (bool, error)
+
 	// SigCache defines a signature cache to use.
 	SigCache *txscript.SigCache
+
+	// HashCache defines the transaction hash mid-state cache to use.
+	HashCache *txscript.HashCache
 
 	// AddrIndex defines the optional address index instance to use for
 	// indexing the unconfirmed transactions in the memory pool.
 	// This can be nil if the address index is not enabled.
 	AddrIndex *indexers.AddrIndex
+
+	// FeeEstimatator provides a feeEstimator. If it is not nil, the mempool
+	// records all new transactions it observes into the feeEstimator.
+	FeeEstimator *FeeEstimator
 }
 
 // Policy houses the policy (configuration parameters) which is used to
@@ -112,12 +125,11 @@ type Policy struct {
 	// of big orphans.
 	MaxOrphanTxSize int
 
-	// MaxSigOpsPerTx is the maximum number of signature operations
-	// in a single transaction we will relay or mine.  It is a fraction
-	// of the max signature operations for a block.
-	MaxSigOpsPerTx int64
+	// LimitSigChecks applies an additional standardness limit to the number
+	// of signature checks in each transaction.
+	LimitSigChecks bool
 
-	// MinRelayTxFee defines the minimum transaction fee in BTC/kB to be
+	// MinRelayTxFee defines the minimum transaction fee in BCH/kB to be
 	// considered a non-zero fee.
 	MinRelayTxFee btcutil.Amount
 }
@@ -566,15 +578,21 @@ func (mp *TxPool) fetchInputUtxos(tx *btcutil.Tx) (*blockchain.UtxoViewpoint, er
 	}
 
 	// Attempt to populate any missing inputs from the transaction pool.
-	for originHash, entry := range utxoView.Entries() {
-		if entry != nil && !entry.IsFullySpent() {
+	for _, txIn := range tx.MsgTx().TxIn {
+		prevOut := &txIn.PreviousOutPoint
+		entry := utxoView.LookupEntry(*prevOut)
+		if entry != nil && !entry.IsSpent() {
 			continue
 		}
 
-		if poolTxDesc, exists := mp.pool[originHash]; exists {
-			utxoView.AddTxOuts(poolTxDesc.Tx, mining.UnminedHeight)
+		if poolTxDesc, exists := mp.pool[prevOut.Hash]; exists {
+			// AddTxOut ignores out of range index values, so it is
+			// safe to call without bounds checking here.
+			utxoView.AddTxOut(poolTxDesc.Tx, prevOut.Index,
+				mining.UnminedHeight)
 		}
 	}
+
 	return utxoView, nil
 }
 
@@ -615,10 +633,28 @@ func (mp *TxPool) maybeAcceptTransaction(tx *btcutil.Tx, isNew, rateLimit, rejec
 		return nil, nil, txRuleError(wire.RejectDuplicate, str)
 	}
 
+	medianTimePast := mp.cfg.MedianTimePast()
+
+	// Get the current height of the main chain.  A standalone transaction
+	// will be mined into the next block at best, so its height is at least
+	// one more than the current height.
+	bestHeight := mp.cfg.BestHeight()
+	nextBlockHeight := bestHeight + 1
+
+	magneticAnomalyActive := false
+	if nextBlockHeight > mp.cfg.ChainParams.MagneticAnonomalyForkHeight {
+		magneticAnomalyActive = true
+	}
+
+	scriptFlags := txscript.StandardVerifyFlags
+	if !mp.cfg.Policy.LimitSigChecks {
+		scriptFlags ^= txscript.ScriptVerifyInputSigChecks
+	}
+
 	// Perform preliminary sanity checks on the transaction.  This makes
 	// use of blockchain which contains the invariant rules for what
 	// transactions are allowed into blocks.
-	err := blockchain.CheckTransactionSanity(tx)
+	err := blockchain.CheckTransactionSanity(tx, magneticAnomalyActive, scriptFlags)
 	if err != nil {
 		if cerr, ok := err.(blockchain.RuleError); ok {
 			return nil, nil, chainRuleError(cerr)
@@ -632,24 +668,6 @@ func (mp *TxPool) maybeAcceptTransaction(tx *btcutil.Tx, isNew, rateLimit, rejec
 			txHash)
 		return nil, nil, txRuleError(wire.RejectInvalid, str)
 	}
-
-	// Don't accept transactions with a lock time after the maximum int32
-	// value for now.  This is an artifact of older bitcoind clients which
-	// treated this field as an int32 and would treat anything larger
-	// incorrectly (as negative).
-	if tx.MsgTx().LockTime > math.MaxInt32 {
-		str := fmt.Sprintf("transaction %v has a lock time after "+
-			"2038 which is not accepted yet", txHash)
-		return nil, nil, txRuleError(wire.RejectNonstandard, str)
-	}
-
-	// Get the current height of the main chain.  A standalone transaction
-	// will be mined into the next block at best, so its height is at least
-	// one more than the current height.
-	bestHeight := mp.cfg.BestHeight()
-	nextBlockHeight := bestHeight + 1
-
-	medianTimePast := mp.cfg.MedianTimePast()
 
 	// Don't allow non-standard transactions if the network parameters
 	// forbid their acceptance.
@@ -698,25 +716,29 @@ func (mp *TxPool) maybeAcceptTransaction(tx *btcutil.Tx, isNew, rateLimit, rejec
 
 	// Don't allow the transaction if it exists in the main chain and is not
 	// not already fully spent.
-	txEntry := utxoView.LookupEntry(txHash)
-	if txEntry != nil && !txEntry.IsFullySpent() {
-		return nil, nil, txRuleError(wire.RejectDuplicate,
-			"transaction already exists")
+	prevOut := wire.OutPoint{Hash: *txHash}
+	for txOutIdx := range tx.MsgTx().TxOut {
+		prevOut.Index = uint32(txOutIdx)
+		entry := utxoView.LookupEntry(prevOut)
+		if entry != nil && !entry.IsSpent() {
+			return nil, nil, txRuleError(wire.RejectDuplicate,
+				"transaction already exists")
+		}
+		utxoView.RemoveEntry(prevOut)
 	}
-	delete(utxoView.Entries(), *txHash)
 
-	// Transaction is an orphan if any of the referenced input transactions
-	// don't exist.  Adding orphans to the orphan pool is not handled by
-	// this function, and the caller should use maybeAddOrphan if this
-	// behavior is desired.
+	// Transaction is an orphan if any of the referenced transaction outputs
+	// don't exist or are already spent.  Adding orphans to the orphan pool
+	// is not handled by this function, and the caller should use
+	// maybeAddOrphan if this behavior is desired.
 	var missingParents []*chainhash.Hash
-	for originHash, entry := range utxoView.Entries() {
-		if entry == nil || entry.IsFullySpent() {
+	for outpoint, entry := range utxoView.Entries() {
+		if entry == nil || entry.IsSpent() {
 			// Must make a copy of the hash here since the iterator
 			// is replaced and taking its address directly would
 			// result in all of the entries pointing to the same
 			// memory location and thus all be the final hash.
-			hashCopy := originHash
+			hashCopy := outpoint.Hash
 			missingParents = append(missingParents, &hashCopy)
 		}
 	}
@@ -756,7 +778,7 @@ func (mp *TxPool) maybeAcceptTransaction(tx *btcutil.Tx, isNew, rateLimit, rejec
 	// Don't allow transactions with non-standard inputs if the network
 	// parameters forbid their acceptance.
 	if !mp.cfg.Policy.AcceptNonStd {
-		err := checkInputsStandard(tx, utxoView)
+		err := checkInputsStandard(tx, utxoView, scriptFlags)
 		if err != nil {
 			// Attempt to extract a reject code from the error so
 			// it can be retained.  When not possible, fall back to
@@ -769,29 +791,6 @@ func (mp *TxPool) maybeAcceptTransaction(tx *btcutil.Tx, isNew, rateLimit, rejec
 				"input: %v", txHash, err)
 			return nil, nil, txRuleError(rejectCode, str)
 		}
-	}
-
-	// NOTE: if you modify this code to accept non-standard transactions,
-	// you should add code here to check that the transaction does a
-	// reasonable number of ECDSA signature verifications.
-
-	// Don't allow transactions with an excessive number of signature
-	// operations which would result in making it impossible to mine.  Since
-	// the coinbase address itself can contain signature operations, the
-	// maximum allowed signature operations per transaction is less than
-	// the maximum allowed signature operations per block.
-	numSigOps, err := blockchain.CountP2SHSigOps(tx, false, utxoView)
-	if err != nil {
-		if cerr, ok := err.(blockchain.RuleError); ok {
-			return nil, nil, chainRuleError(cerr)
-		}
-		return nil, nil, err
-	}
-	numSigOps += blockchain.CountSigOps(tx)
-	if int64(numSigOps) > mp.cfg.Policy.MaxSigOpsPerTx {
-		str := fmt.Sprintf("transaction %v has too many sigops: %d > %d",
-			txHash, numSigOps, mp.cfg.Policy.MaxSigOpsPerTx)
-		return nil, nil, txRuleError(wire.RejectNonstandard, str)
 	}
 
 	// Don't allow transactions with fees too low to get into a mined block.
@@ -856,8 +855,8 @@ func (mp *TxPool) maybeAcceptTransaction(tx *btcutil.Tx, isNew, rateLimit, rejec
 
 	// Verify crypto signatures for each input and reject the transaction if
 	// any don't verify.
-	err = blockchain.ValidateTransactionScripts(tx, utxoView,
-		txscript.StandardVerifyFlags, mp.cfg.SigCache)
+	_, err = blockchain.ValidateTransactionScripts(tx, utxoView, scriptFlags,
+		mp.cfg.SigCache, mp.cfg.HashCache)
 	if err != nil {
 		if cerr, ok := err.(blockchain.RuleError); ok {
 			return nil, nil, chainRuleError(cerr)

@@ -83,14 +83,13 @@ func calcMinRequiredTxRelayFee(serializedSize int64, minRelayTxFee btcutil.Amoun
 // checkInputsStandard performs a series of checks on a transaction's inputs
 // to ensure they are "standard".  A standard transaction input within the
 // context of this function is one whose referenced public key script is of a
-// standard form and, for pay-to-script-hash, does not have more than
-// maxStandardP2SHSigOps signature operations.  However, it should also be noted
-// that standard inputs also are those which have a clean stack after execution
-// and only contain pushed data in their signature scripts.  This function does
-// not perform those checks because the script engine already does this more
-// accurately and concisely via the txscript.ScriptVerifyCleanStack and
-// txscript.ScriptVerifySigPushOnly flags.
-func checkInputsStandard(tx *btcutil.Tx, utxoView *blockchain.UtxoViewpoint) error {
+// standard form. However, it should also be noted that standard inputs also are
+// those which have a clean stack after execution and only contain pushed data
+// in their signature scripts.  This function does not perform those checks
+// because the script engine already does this more accurately and concisely
+// via the txscript.ScriptVerifyCleanStack and txscript.ScriptVerifySigPushOnly
+// flags.
+func checkInputsStandard(tx *btcutil.Tx, utxoView *blockchain.UtxoViewpoint, scriptFlags txscript.ScriptFlags) error {
 	// NOTE: The reference implementation also does a coinbase check here,
 	// but coinbases have already been rejected prior to calling this
 	// function so no need to recheck.
@@ -99,21 +98,9 @@ func checkInputsStandard(tx *btcutil.Tx, utxoView *blockchain.UtxoViewpoint) err
 		// It is safe to elide existence and index checks here since
 		// they have already been checked prior to calling this
 		// function.
-		prevOut := txIn.PreviousOutPoint
-		entry := utxoView.LookupEntry(&prevOut.Hash)
-		originPkScript := entry.PkScriptByIndex(prevOut.Index)
+		entry := utxoView.LookupEntry(txIn.PreviousOutPoint)
+		originPkScript := entry.PkScript()
 		switch txscript.GetScriptClass(originPkScript) {
-		case txscript.ScriptHashTy:
-			numSigOps := txscript.GetPreciseSigOpCount(
-				txIn.SignatureScript, originPkScript, true)
-			if numSigOps > maxStandardP2SHSigOps {
-				str := fmt.Sprintf("transaction input #%d has "+
-					"%d signature operations which is more "+
-					"than the allowed max amount of %d",
-					i, numSigOps, maxStandardP2SHSigOps)
-				return txRuleError(wire.RejectNonstandard, str)
-			}
-
 		case txscript.NonStandardTy:
 			str := fmt.Sprintf("transaction input #%d has a "+
 				"non-standard script form", i)
