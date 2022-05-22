@@ -730,7 +730,7 @@ func (s *server) locateBlocks(locators []*chainhash.Hash, hashStop *chainhash.Ha
 func fetchHeaders(chain *blockchain.BlockChain, blockHashes []chainhash.Hash) ([]wire.BlockHeader, error) {
 	headers := make([]wire.BlockHeader, 0, len(blockHashes))
 	for i := range blockHashes {
-		header, err := chain.FetchHeader(&blockHashes[i])
+		header, err := chain.HeaderByHash(&blockHashes[i])
 		if err != nil {
 			return nil, err
 		}
@@ -2405,7 +2405,7 @@ func newServer(listenAddrs []string, db database.DB, chainParams *chaincfg.Param
 			FreeTxRelayLimit:     cfg.FreeTxRelayLimit,
 			MaxOrphanTxs:         cfg.MaxOrphanTxs,
 			MaxOrphanTxSize:      defaultMaxOrphanTxSize,
-			MaxSigOpsPerTx:       int64(blockchain.MaxSigOpsPerBlock / 5),
+			LimitSigChecks:       true,
 			MinRelayTxFee:        cfg.minRelayTxFee,
 			MaxTxVersion:         2,
 		},
