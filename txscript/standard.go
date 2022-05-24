@@ -13,7 +13,7 @@ import (
 const (
 	// MaxDataCarrierSize is the maximum number of bytes allowed in pushed
 	// data to be considered a nulldata transaction
-	MaxDataCarrierSize = 80
+	MaxDataCarrierSize = 223
 
 	// StandardVerifyFlags are the script flags which are used when
 	// executing transaction scripts to enforce additional checks which
@@ -35,7 +35,18 @@ const (
 		ScriptVerifyNullFail |
 		ScriptVerifyCheckLockTimeVerify |
 		ScriptVerifyCheckSequenceVerify |
-		ScriptVerifyLowS
+		ScriptVerifyLowS |
+		ScriptStrictMultiSig |
+		ScriptVerifyBip143SigHash |
+		ScriptVerifySigPushOnly |
+		ScriptVerifyCheckDataSig |
+		ScriptVerifySchnorr |
+		ScriptVerifySchnorrMultisig |
+		ScriptVerifyReverseBytes |
+		ScriptReportSigChecks |
+		ScriptVerifyInputSigChecks |
+		ScriptVerify64BitIntegers |
+		ScriptVerifyNativeIntrospection
 )
 
 // ScriptClass is an enumeration for the list of standard types of script.
