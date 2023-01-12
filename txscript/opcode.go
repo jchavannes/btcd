@@ -586,6 +586,10 @@ var opcodeArray = [256]opcode{
 	OP_INVALIDOPCODE: {OP_INVALIDOPCODE, "OP_INVALIDOPCODE", 1, opcodeInvalid},
 }
 
+func GetOpCodeString(opCode byte) string {
+	return opcodeArray[opCode].name
+}
+
 // opcodeOnelineRepls defines opcode names which are replaced when doing a
 // one-line disassembly.  This is done to match the output of the reference
 // implementation while not changing the opcode names in the nicer full
