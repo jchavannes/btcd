@@ -278,7 +278,7 @@ const (
 	OP_UNKNOWN236          = 0xec // 236
 	OP_UNKNOWN237          = 0xed // 237
 	OP_UNKNOWN238          = 0xee // 238
-	OP_UNKNOWN239          = 0xef // 239
+	OP_PREFIXTOKEN         = 0xef // 239
 	OP_UNKNOWN240          = 0xf0 // 240
 	OP_UNKNOWN241          = 0xf1 // 241
 	OP_UNKNOWN242          = 0xf2 // 242
@@ -564,7 +564,6 @@ var opcodeArray = [256]opcode{
 	OP_UNKNOWN236: {OP_UNKNOWN236, "OP_UNKNOWN236", 1, opcodeInvalid},
 	OP_UNKNOWN237: {OP_UNKNOWN237, "OP_UNKNOWN237", 1, opcodeInvalid},
 	OP_UNKNOWN238: {OP_UNKNOWN238, "OP_UNKNOWN238", 1, opcodeInvalid},
-	OP_UNKNOWN239: {OP_UNKNOWN239, "OP_UNKNOWN239", 1, opcodeInvalid},
 	OP_UNKNOWN240: {OP_UNKNOWN240, "OP_UNKNOWN240", 1, opcodeInvalid},
 	OP_UNKNOWN241: {OP_UNKNOWN241, "OP_UNKNOWN241", 1, opcodeInvalid},
 	OP_UNKNOWN242: {OP_UNKNOWN242, "OP_UNKNOWN242", 1, opcodeInvalid},
@@ -575,6 +574,9 @@ var opcodeArray = [256]opcode{
 	OP_UNKNOWN247: {OP_UNKNOWN247, "OP_UNKNOWN247", 1, opcodeInvalid},
 	OP_UNKNOWN248: {OP_UNKNOWN248, "OP_UNKNOWN248", 1, opcodeInvalid},
 	OP_UNKNOWN249: {OP_UNKNOWN249, "OP_UNKNOWN249", 1, opcodeInvalid},
+
+	// Cash token
+	OP_PREFIXTOKEN: {OP_PREFIXTOKEN, "OP_PREFIXTOKEN", -5, opcodeNop},
 
 	// Bitcoin Core internal use opcode.  Defined here for completeness.
 	OP_SMALLINTEGER: {OP_SMALLINTEGER, "OP_SMALLINTEGER", 1, opcodeInvalid},
@@ -794,6 +796,8 @@ func (pop *parsedOpcode) bytes() ([]byte, error) {
 	var retbytes []byte
 	if pop.opcode.length > 0 {
 		retbytes = make([]byte, 1, pop.opcode.length)
+	} else if pop.opcode.length == -5 {
+		retbytes = make([]byte, 1, 1+len(pop.data))
 	} else {
 		retbytes = make([]byte, 1, 1+len(pop.data)-
 			pop.opcode.length)

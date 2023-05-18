@@ -132,6 +132,44 @@ func parseScriptTemplate(script []byte, opcodes *[256]opcode) ([]parsedOpcode, e
 			pop.data = script[i+1 : i+op.length]
 			i += op.length
 
+		case op.length == -5:
+			origI := i
+			if len(script) < i+33 {
+				str := fmt.Sprintf("opcode %s requires %d "+
+					"bytes, but script only has %d remaining",
+					op.name, 33, len(script[i:]))
+				return retScript, scriptError(ErrMalformedPush,
+					str)
+			}
+			tokenBitfieldByte := script[i+33]
+			bitFieldPrefix := tokenBitfieldByte & 0xf0
+			hasCommitmentLength := bitFieldPrefix&(1<<6) != 0
+			hasAmount := bitFieldPrefix&(1<<4) != 0
+			i += 34
+			if hasCommitmentLength {
+				commitmentLength, size := getCompactInt(script[i:])
+				if commitmentLength == 0 {
+					str := fmt.Sprintf("opcode %s requires %d "+
+						"bytes, but script only has %d remaining",
+						op.name, size, len(script[i:]))
+					return retScript, scriptError(ErrMalformedPush,
+						str)
+				}
+				i += int(commitmentLength)
+			}
+			if hasAmount {
+				amt, size := getCompactInt(script[i:])
+				if amt == 0 {
+					str := fmt.Sprintf("opcode %s requires %d "+
+						"bytes, but script only has %d remaining",
+						op.name, size, len(script[i:]))
+					return retScript, scriptError(ErrMalformedPush,
+						str)
+				}
+				i += size
+			}
+			pop.data = script[origI:i]
+
 		// Data pushes with parsed lengths -- OP_PUSHDATAP{1,2,4}.
 		case op.length < 0:
 			var l uint
@@ -185,6 +223,31 @@ func parseScriptTemplate(script []byte, opcodes *[256]opcode) ([]parsedOpcode, e
 	}
 
 	return retScript, nil
+}
+
+func getCompactInt(script []byte) (uint64, int) {
+	if len(script) == 0 {
+		return 0, 1
+	}
+	switch script[0] {
+	case 0xff:
+		if len(script) < 9 {
+			return 0, 9
+		}
+		return binary.BigEndian.Uint64(script[1:9]), 9
+	case 0xfe:
+		if len(script) < 5 {
+			return 0, 5
+		}
+		return uint64(binary.LittleEndian.Uint32(script[1:5])), 5
+	case 0xfd:
+		if len(script) < 3 {
+			return 0, 3
+		}
+		return uint64(binary.LittleEndian.Uint16(script[1:3])), 3
+	default:
+		return uint64(script[0]), 1
+	}
 }
 
 // parseScript preparses the script in bytes into a list of parsedOpcodes while
