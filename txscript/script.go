@@ -155,7 +155,7 @@ func parseScriptTemplate(script []byte, opcodes *[256]opcode) ([]parsedOpcode, e
 					return retScript, scriptError(ErrMalformedPush,
 						str)
 				}
-				i += int(commitmentLength)
+				i += int(commitmentLength) + size
 			}
 			if hasAmount {
 				amt, size := getCompactInt(script[i:])

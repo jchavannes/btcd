@@ -766,6 +766,8 @@ func (pop *parsedOpcode) print(oneline bool) string {
 		// Nothing more to do for non-data push opcodes.
 		if pop.opcode.length == 1 {
 			return opcodeName
+		} else if pop.opcode.length == -5 {
+			return fmt.Sprintf("[%s %x]", opcodeName, pop.data)
 		}
 
 		return fmt.Sprintf("%x", pop.data)
@@ -774,6 +776,8 @@ func (pop *parsedOpcode) print(oneline bool) string {
 	// Nothing more to do for non-data push opcodes.
 	if pop.opcode.length == 1 {
 		return opcodeName
+	} else if pop.opcode.length == -5 {
+		return fmt.Sprintf("%s %x", opcodeName, pop.data)
 	}
 
 	// Add length for the OP_PUSHDATA# opcodes.
