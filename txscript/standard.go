@@ -453,6 +453,9 @@ func ExtractPkScriptAddrs(pkScript []byte, chainParams *chaincfg.Params) (Script
 	if err != nil {
 		return NonStandardTy, nil, 0, err
 	}
+	if len(pops) >= 1 && pops[0].opcode.value == OP_PREFIXTOKEN {
+		pops = pops[1:]
+	}
 
 	scriptClass := typeOfScript(pops)
 	switch scriptClass {
