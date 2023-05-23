@@ -628,8 +628,6 @@ type parsedOpcode struct {
 // bad to see in the instruction stream (even if turned off by a conditional).
 func (pop *parsedOpcode) isDisabled() bool {
 	switch pop.opcode.value {
-	case OP_CAT:
-		return true
 	case OP_INVERT:
 		return true
 	case OP_AND:
