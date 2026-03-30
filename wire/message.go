@@ -55,6 +55,7 @@ const (
 
 	CmdCreateStream = "createstrm"
 	CmdStreamAck    = "streamack"
+	CmdAuthCh       = "authch"
 )
 
 // Message is an interface that describes a bitcoin message.  A type that
@@ -151,8 +152,11 @@ func makeEmptyMessage(command string) (Message, error) {
 	case CmdStreamAck:
 		msg = &MsgStreamAck{}
 
+	case CmdAuthCh:
+		msg = &MsgAuthCh{}
+
 	default:
-		return nil, fmt.Errorf("unhandled command [%s]", command)
+		msg = &MsgUnknown{command: command}
 	}
 	return msg, nil
 }
