@@ -1,6 +1,6 @@
 module github.com/jchavannes/btcd
 
-go 1.16
+go 1.25.0
 
 require (
 	github.com/btcsuite/go-socks v0.0.0-20170105172521-4720035b7bfd
@@ -13,5 +13,7 @@ require (
 	github.com/jchavannes/btcutil v1.1.4
 	github.com/jessevdk/go-flags v1.4.0
 	github.com/jrick/logrotate v1.0.0
-	golang.org/x/crypto v0.0.0-20201016220609-9e8e0b390897
+	golang.org/x/crypto v0.52.0
 )
+
+require github.com/btcsuite/snappy-go v1.0.0 // indirect
