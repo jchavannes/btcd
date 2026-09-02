@@ -122,6 +122,10 @@ func TestOpcodeDisasm(t *testing.T) {
 				expectedStr = "OP_NOP" + strconv.Itoa(int(val))
 			}
 
+		// 0xef inside bytecode is a plain (invalid) opcode.
+		case opcodeVal == OP_PREFIXTOKEN:
+			expectedStr = "OP_PREFIXTOKEN"
+
 		// OP_UNKNOWN#.
 		case opcodeVal >= 0xba && opcodeVal <= 0xf9 || opcodeVal == 0xfc:
 			expectedStr = "OP_UNKNOWN" + strconv.Itoa(int(opcodeVal))
@@ -187,6 +191,10 @@ func TestOpcodeDisasm(t *testing.T) {
 				val := byte(opcodeVal - (0xb0 - 1))
 				expectedStr = "OP_NOP" + strconv.Itoa(int(val))
 			}
+
+		// 0xef inside bytecode is a plain (invalid) opcode.
+		case opcodeVal == OP_PREFIXTOKEN:
+			expectedStr = "OP_PREFIXTOKEN"
 
 		// OP_UNKNOWN#.
 		case opcodeVal >= 0xba && opcodeVal <= 0xf9 || opcodeVal == 0xfc:

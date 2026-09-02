@@ -278,7 +278,7 @@ const (
 	OP_UNKNOWN236          = 0xec // 236
 	OP_UNKNOWN237          = 0xed // 237
 	OP_UNKNOWN238          = 0xee // 238
-	OP_UNKNOWN239          = 0xef // 239
+	OP_PREFIXTOKEN         = 0xef // 239
 	OP_UNKNOWN240          = 0xf0 // 240
 	OP_UNKNOWN241          = 0xf1 // 241
 	OP_UNKNOWN242          = 0xf2 // 242
@@ -564,7 +564,6 @@ var opcodeArray = [256]opcode{
 	OP_UNKNOWN236: {OP_UNKNOWN236, "OP_UNKNOWN236", 1, opcodeInvalid},
 	OP_UNKNOWN237: {OP_UNKNOWN237, "OP_UNKNOWN237", 1, opcodeInvalid},
 	OP_UNKNOWN238: {OP_UNKNOWN238, "OP_UNKNOWN238", 1, opcodeInvalid},
-	OP_UNKNOWN239: {OP_UNKNOWN239, "OP_UNKNOWN239", 1, opcodeInvalid},
 	OP_UNKNOWN240: {OP_UNKNOWN240, "OP_UNKNOWN240", 1, opcodeInvalid},
 	OP_UNKNOWN241: {OP_UNKNOWN241, "OP_UNKNOWN241", 1, opcodeInvalid},
 	OP_UNKNOWN242: {OP_UNKNOWN242, "OP_UNKNOWN242", 1, opcodeInvalid},
@@ -575,6 +574,10 @@ var opcodeArray = [256]opcode{
 	OP_UNKNOWN247: {OP_UNKNOWN247, "OP_UNKNOWN247", 1, opcodeInvalid},
 	OP_UNKNOWN248: {OP_UNKNOWN248, "OP_UNKNOWN248", 1, opcodeInvalid},
 	OP_UNKNOWN249: {OP_UNKNOWN249, "OP_UNKNOWN249", 1, opcodeInvalid},
+
+	// Cash token.  Inside locking bytecode 0xef is an ordinary invalid
+	// opcode; at offset 0 the parser substitutes tokenPrefixOpcode.
+	OP_PREFIXTOKEN: {OP_PREFIXTOKEN, "OP_PREFIXTOKEN", 1, opcodeInvalid},
 
 	// Bitcoin Core internal use opcode.  Defined here for completeness.
 	OP_SMALLINTEGER: {OP_SMALLINTEGER, "OP_SMALLINTEGER", 1, opcodeInvalid},
@@ -589,6 +592,12 @@ var opcodeArray = [256]opcode{
 func GetOpCodeString(opCode byte) string {
 	return opcodeArray[opCode].name
 }
+
+// tokenPrefixOpcode is used in place of opcodeArray[OP_PREFIXTOKEN] when the
+// 0xef byte is the first byte of a script.  There it is the CashTokens output
+// prefix, which carries token data of variable length (length -5) and is not
+// part of the locking bytecode, so executing it is a no-op.
+var tokenPrefixOpcode = opcode{OP_PREFIXTOKEN, "OP_PREFIXTOKEN", -5, opcodeNop}
 
 // opcodeOnelineRepls defines opcode names which are replaced when doing a
 // one-line disassembly.  This is done to match the output of the reference
@@ -764,6 +773,8 @@ func (pop *parsedOpcode) print(oneline bool) string {
 		// Nothing more to do for non-data push opcodes.
 		if pop.opcode.length == 1 {
 			return opcodeName
+		} else if pop.opcode.length == -5 {
+			return fmt.Sprintf("[%s %x]", opcodeName, pop.data)
 		}
 
 		return fmt.Sprintf("%x", pop.data)
@@ -772,6 +783,8 @@ func (pop *parsedOpcode) print(oneline bool) string {
 	// Nothing more to do for non-data push opcodes.
 	if pop.opcode.length == 1 {
 		return opcodeName
+	} else if pop.opcode.length == -5 {
+		return fmt.Sprintf("%s %x", opcodeName, pop.data)
 	}
 
 	// Add length for the OP_PUSHDATA# opcodes.
@@ -794,6 +807,8 @@ func (pop *parsedOpcode) bytes() ([]byte, error) {
 	var retbytes []byte
 	if pop.opcode.length > 0 {
 		retbytes = make([]byte, 1, pop.opcode.length)
+	} else if pop.opcode.length == -5 {
+		retbytes = make([]byte, 1, 1+len(pop.data))
 	} else {
 		retbytes = make([]byte, 1, 1+len(pop.data)-
 			pop.opcode.length)
@@ -815,6 +830,8 @@ func (pop *parsedOpcode) bytes() ([]byte, error) {
 		l := len(pop.data)
 		// tempting just to hardcode to avoid the complexity here.
 		switch pop.opcode.length {
+		case -5:
+			nbytes = 1 + l
 		case -1:
 			retbytes = append(retbytes, byte(l))
 			nbytes = int(retbytes[1]) + len(retbytes)
