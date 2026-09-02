@@ -57,6 +57,7 @@ const (
 	CmdCreateStream = "createstrm"
 	CmdStreamAck    = "streamack"
 	CmdExtended     = "extmsg" // added in protocol version 70016
+	CmdAuthCh       = "authch"
 )
 
 // MessageEncoding represents the wire message encoding format to be used.
@@ -165,8 +166,11 @@ func makeEmptyMessage(command string) (Message, error) {
 	case CmdExtended:
 		msg = &MsgExtended{}
 
+	case CmdAuthCh:
+		msg = &MsgAuthCh{}
+
 	default:
-		return nil, fmt.Errorf("unhandled command [%s]", command)
+		msg = &MsgUnknown{command: command}
 	}
 	return msg, nil
 }
