@@ -575,8 +575,9 @@ var opcodeArray = [256]opcode{
 	OP_UNKNOWN248: {OP_UNKNOWN248, "OP_UNKNOWN248", 1, opcodeInvalid},
 	OP_UNKNOWN249: {OP_UNKNOWN249, "OP_UNKNOWN249", 1, opcodeInvalid},
 
-	// Cash token
-	OP_PREFIXTOKEN: {OP_PREFIXTOKEN, "OP_PREFIXTOKEN", -5, opcodeNop},
+	// Cash token.  Inside locking bytecode 0xef is an ordinary invalid
+	// opcode; at offset 0 the parser substitutes tokenPrefixOpcode.
+	OP_PREFIXTOKEN: {OP_PREFIXTOKEN, "OP_PREFIXTOKEN", 1, opcodeInvalid},
 
 	// Bitcoin Core internal use opcode.  Defined here for completeness.
 	OP_SMALLINTEGER: {OP_SMALLINTEGER, "OP_SMALLINTEGER", 1, opcodeInvalid},
@@ -591,6 +592,12 @@ var opcodeArray = [256]opcode{
 func GetOpCodeString(opCode byte) string {
 	return opcodeArray[opCode].name
 }
+
+// tokenPrefixOpcode is used in place of opcodeArray[OP_PREFIXTOKEN] when the
+// 0xef byte is the first byte of a script.  There it is the CashTokens output
+// prefix, which carries token data of variable length (length -5) and is not
+// part of the locking bytecode, so executing it is a no-op.
+var tokenPrefixOpcode = opcode{OP_PREFIXTOKEN, "OP_PREFIXTOKEN", -5, opcodeNop}
 
 // opcodeOnelineRepls defines opcode names which are replaced when doing a
 // one-line disassembly.  This is done to match the output of the reference
@@ -823,6 +830,8 @@ func (pop *parsedOpcode) bytes() ([]byte, error) {
 		l := len(pop.data)
 		// tempting just to hardcode to avoid the complexity here.
 		switch pop.opcode.length {
+		case -5:
+			nbytes = 1 + l
 		case -1:
 			retbytes = append(retbytes, byte(l))
 			nbytes = int(retbytes[1]) + len(retbytes)

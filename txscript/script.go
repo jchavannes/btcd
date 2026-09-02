@@ -108,6 +108,10 @@ func parseScriptTemplate(script []byte, opcodes *[256]opcode) ([]parsedOpcode, e
 	for i := 0; i < len(script); {
 		instr := script[i]
 		op := &opcodes[instr]
+		if i == 0 && instr == OP_PREFIXTOKEN {
+			// A leading 0xef is the CashTokens prefix, not bytecode.
+			op = &tokenPrefixOpcode
+		}
 		pop := parsedOpcode{opcode: op}
 
 		// Parse data out of instruction.
@@ -132,43 +136,14 @@ func parseScriptTemplate(script []byte, opcodes *[256]opcode) ([]parsedOpcode, e
 			pop.data = script[i+1 : i+op.length]
 			i += op.length
 
+		// CashTokens prefix -- OP_PREFIXTOKEN.
 		case op.length == -5:
-			origI := i
-			if len(script) < i+33 {
-				str := fmt.Sprintf("opcode %s requires %d "+
-					"bytes, but script only has %d remaining",
-					op.name, 33, len(script[i:]))
-				return retScript, scriptError(ErrMalformedPush,
-					str)
+			n, err := parseTokenPrefix(script[i+1:])
+			if err != nil {
+				return retScript, err
 			}
-			tokenBitfieldByte := script[i+33]
-			bitFieldPrefix := tokenBitfieldByte & 0xf0
-			hasCommitmentLength := bitFieldPrefix&(1<<6) != 0
-			hasAmount := bitFieldPrefix&(1<<4) != 0
-			i += 34
-			if hasCommitmentLength {
-				commitmentLength, size := getCompactInt(script[i:])
-				if commitmentLength == 0 {
-					str := fmt.Sprintf("opcode %s requires %d "+
-						"bytes, but script only has %d remaining",
-						op.name, size, len(script[i:]))
-					return retScript, scriptError(ErrMalformedPush,
-						str)
-				}
-				i += int(commitmentLength) + size
-			}
-			if hasAmount {
-				amt, size := getCompactInt(script[i:])
-				if amt == 0 {
-					str := fmt.Sprintf("opcode %s requires %d "+
-						"bytes, but script only has %d remaining",
-						op.name, size, len(script[i:]))
-					return retScript, scriptError(ErrMalformedPush,
-						str)
-				}
-				i += size
-			}
-			pop.data = script[origI:i]
+			pop.data = script[i+1 : i+1+n]
+			i += 1 + n
 
 		// Data pushes with parsed lengths -- OP_PUSHDATAP{1,2,4}.
 		case op.length < 0:
@@ -225,29 +200,85 @@ func parseScriptTemplate(script []byte, opcodes *[256]opcode) ([]parsedOpcode, e
 	return retScript, nil
 }
 
-func getCompactInt(script []byte) (uint64, int) {
-	if len(script) == 0 {
-		return 0, 1
+// Token bitfield flags and limits from the CashTokens specification
+// (CHIP-2022-02-CashTokens).
+const (
+	tokenBitfieldReserved       = 0x80
+	tokenBitfieldHasCommitment  = 0x40
+	tokenBitfieldHasNFT         = 0x20
+	tokenBitfieldHasAmount      = 0x10
+	tokenBitfieldCapabilityMask = 0x0f
+	tokenCapabilityMinting      = 0x02
+	tokenCategoryIDSize         = 32
+	tokenMaxAmount              = 1<<63 - 1
+)
+
+// parseTokenPrefix returns the length of the CashTokens prefix data that
+// follows an OP_PREFIXTOKEN byte:
+//
+//	<category_id (32 bytes)> <bitfield (1 byte)>
+//	[<commitment_length (CompactSize)> <commitment>] [<amount (CompactSize)>]
+//
+// The commitment is present when the HAS_COMMITMENT_LENGTH bit is set and the
+// amount when the HAS_AMOUNT bit is set.  CompactSize values use the standard
+// Bitcoin variable-length integer encoding and must be minimally encoded.
+func parseTokenPrefix(script []byte) (int, error) {
+	malformed := func(format string, args ...interface{}) (int, error) {
+		return 0, scriptError(ErrMalformedPush,
+			"OP_PREFIXTOKEN "+fmt.Sprintf(format, args...))
 	}
-	switch script[0] {
-	case 0xff:
-		if len(script) < 9 {
-			return 0, 9
-		}
-		return binary.BigEndian.Uint64(script[1:9]), 9
-	case 0xfe:
-		if len(script) < 5 {
-			return 0, 5
-		}
-		return uint64(binary.LittleEndian.Uint32(script[1:5])), 5
-	case 0xfd:
-		if len(script) < 3 {
-			return 0, 3
-		}
-		return uint64(binary.LittleEndian.Uint16(script[1:3])), 3
-	default:
-		return uint64(script[0]), 1
+	if len(script) < tokenCategoryIDSize+1 {
+		return malformed("requires %d bytes, but script only has %d "+
+			"remaining", tokenCategoryIDSize+1, len(script))
 	}
+	bitfield := script[tokenCategoryIDSize]
+	hasCommitment := bitfield&tokenBitfieldHasCommitment != 0
+	hasNFT := bitfield&tokenBitfieldHasNFT != 0
+	hasAmount := bitfield&tokenBitfieldHasAmount != 0
+	capability := bitfield & tokenBitfieldCapabilityMask
+	switch {
+	case bitfield&tokenBitfieldReserved != 0:
+		return malformed("reserved bitfield bit set")
+	case !hasNFT && !hasAmount:
+		return malformed("token has neither NFT nor amount")
+	case !hasNFT && (hasCommitment || capability != 0):
+		return malformed("commitment or capability without NFT")
+	case capability > tokenCapabilityMinting:
+		return malformed("invalid capability %d", capability)
+	}
+	n := tokenCategoryIDSize + 1
+	readCompactSize := func() (uint64, error) {
+		v, err := wire.ReadVarInt(bytes.NewReader(script[n:]), 0)
+		if err != nil {
+			return 0, err
+		}
+		n += wire.VarIntSerializeSize(v)
+		return v, nil
+	}
+	if hasCommitment {
+		commitmentLen, err := readCompactSize()
+		if err != nil {
+			return malformed("invalid commitment length: %v", err)
+		}
+		if commitmentLen == 0 {
+			return malformed("commitment length must be at least 1")
+		}
+		if commitmentLen > uint64(len(script)-n) {
+			return malformed("commitment requires %d bytes, but script "+
+				"only has %d remaining", commitmentLen, len(script)-n)
+		}
+		n += int(commitmentLen)
+	}
+	if hasAmount {
+		amount, err := readCompactSize()
+		if err != nil {
+			return malformed("invalid amount: %v", err)
+		}
+		if amount == 0 || amount > tokenMaxAmount {
+			return malformed("amount %d out of range", amount)
+		}
+	}
+	return n, nil
 }
 
 // parseScript preparses the script in bytes into a list of parsedOpcodes while
